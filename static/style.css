@@ -860,3 +860,50 @@ body {
     max-width: 1200px;
     margin: 0 auto;
 }
+
+/* ===== Production Output (Step 4) ===== */
+.production-step {
+    background: rgba(99, 102, 241, 0.05);
+}
+
+.production-item {
+    margin-top: 1rem;
+}
+
+.production-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.production-textarea {
+    width: 100%;
+    min-height: 60px;
+    padding: 0.875rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.2s ease;
+}
+
+.production-textarea.large {
+    min-height: 150px;
+}
+
+.production-textarea:focus {
+    border-color: #8b5cf6;
+}
+
+.production-textarea::placeholder {
+    color: var(--text-muted);
+}

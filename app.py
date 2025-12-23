@@ -101,6 +101,71 @@ def translate_text():
     return jsonify(result)
 
 
+@app.route('/api/generate-production', methods=['POST'])
+def generate_production():
+    """Generate production-ready output: Spanish title, description, and tags in ONE API call."""
+    data = request.json
+    title = data.get('title', '')
+    english_text = data.get('english_text', '')
+    
+    if not english_text:
+        return jsonify({'error': 'No English text provided'}), 400
+    
+    try:
+        from google import genai
+        import json
+        client = genai.Client(api_key=config.GEMINI_API_KEY)
+        
+        # Single combined prompt for all outputs
+        combined_prompt = f"""Generate YouTube production content in Spanish for this football video.
+
+ORIGINAL TITLE: {title}
+
+ENGLISH CONTENT: {english_text[:1000]}
+
+Return EXACTLY this JSON format (no markdown, no code blocks, just raw JSON):
+{{
+    "title": "🚨 SPANISH TITLE IN ALL CAPS HERE",
+    "description": "Long SEO description here with emojis and hashtags at end",
+    "tags": "tag1, tag2, tag3, tag4, tag5"
+}}
+
+RULES FOR EACH FIELD:
+- TITLE: Translate to Spanish, add 🚨 at start, ALL UPPERCASE letters
+- DESCRIPTION: 5-8 sentences, SEO-optimized, include emojis, hashtags at end (lowercase like #futbol #barcelona), NO bold/markdown formatting
+- TAGS: 10-15 tags separated by commas, all lowercase, include player names, team names, relevant topics
+
+Return ONLY the JSON, nothing else."""
+
+        response = client.models.generate_content(
+            model='gemini-2.5-flash-lite',
+            contents=combined_prompt
+        )
+        
+        # Parse the JSON response
+        response_text = response.text.strip()
+        # Remove any markdown code blocks if present
+        if response_text.startswith('```'):
+            response_text = response_text.split('```')[1]
+            if response_text.startswith('json'):
+                response_text = response_text[4:]
+        response_text = response_text.strip()
+        
+        result = json.loads(response_text)
+        
+        return jsonify({
+            'success': True,
+            'title': result.get('title', ''),
+            'description': result.get('description', ''),
+            'tags': result.get('tags', '')
+        })
+        
+    except json.JSONDecodeError as e:
+        return jsonify({'success': False, 'error': f'Failed to parse AI response: {str(e)}'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
 

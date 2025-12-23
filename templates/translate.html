@@ -130,6 +130,52 @@
                         </div>
                         <textarea id="final-${index}" class="step-textarea" placeholder="Translate from English (Step 2) to your target language. You can edit the result here."></textarea>
                     </div>
+
+                    <!-- Step 4: Production Output -->
+                    <div class="translate-step production-step">
+                        <div class="step-header">
+                            <span class="step-number">4</span>
+                            <h4>🎬 Production Output</h4>
+                            <div class="step-actions">
+                                <button class="btn btn-sm btn-primary generate-production-btn" data-index="${index}">
+                                    <i class="fas fa-magic"></i> Generate
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Title -->
+                        <div class="production-item">
+                            <div class="production-label">
+                                <span>🚨 TITLE (Spanish, Caps)</span>
+                                <button class="btn btn-sm btn-ghost copy-btn" data-target="prod-title-${index}">
+                                    <i class="far fa-copy"></i> Copy
+                                </button>
+                            </div>
+                            <textarea id="prod-title-${index}" class="production-textarea" placeholder="Spanish title will appear here..."></textarea>
+                        </div>
+
+                        <!-- Description -->
+                        <div class="production-item">
+                            <div class="production-label">
+                                <span>📄 Description</span>
+                                <button class="btn btn-sm btn-ghost copy-btn" data-target="prod-desc-${index}">
+                                    <i class="far fa-copy"></i> Copy
+                                </button>
+                            </div>
+                            <textarea id="prod-desc-${index}" class="production-textarea" placeholder="YouTube description will appear here..."></textarea>
+                        </div>
+
+                        <!-- Tags -->
+                        <div class="production-item">
+                            <div class="production-label">
+                                <span>🏷️ Tags</span>
+                                <button class="btn btn-sm btn-ghost copy-btn" data-target="prod-tags-${index}">
+                                    <i class="far fa-copy"></i> Copy
+                                </button>
+                            </div>
+                            <textarea id="prod-tags-${index}" class="production-textarea" placeholder="YouTube tags will appear here..."></textarea>
+                        </div>
+                    </div>
                 `;
                 container.appendChild(card);
             });
@@ -184,6 +230,11 @@
                     a.click();
                     URL.revokeObjectURL(url);
                 });
+            });
+
+            // Generate Production buttons
+            document.querySelectorAll('.generate-production-btn').forEach(btn => {
+                btn.addEventListener('click', () => generateProduction(btn.dataset.index));
             });
         }
 
@@ -291,6 +342,54 @@
 
             status.innerHTML = '<i class="fas fa-check-circle"></i> All translations complete. Edit the text as needed.';
             status.className = 'translate-status success';
+        }
+
+        // Generate Production Output
+        async function generateProduction(index) {
+            const title = transcripts[index].title;
+            const englishText = document.getElementById(`english-${index}`).value;
+            const spanishText = document.getElementById(`final-${index}`).value;
+            const btn = document.querySelector(`.generate-production-btn[data-index="${index}"]`);
+
+            if (!englishText.trim()) {
+                alert('Please translate to English first (Step 2)');
+                return;
+            }
+
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+            }
+
+            try {
+                const res = await fetch('/api/generate-production', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: title,
+                        english_text: englishText,
+                        spanish_text: spanishText
+                    })
+                });
+
+                const data = await res.json();
+
+                if (data.success) {
+                    document.getElementById(`prod-title-${index}`).value = data.title;
+                    document.getElementById(`prod-desc-${index}`).value = data.description;
+                    document.getElementById(`prod-tags-${index}`).value = data.tags;
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            } catch (err) {
+                alert('Failed to generate production output');
+                console.error(err);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-magic"></i> Generate';
+                }
+            }
         }
 
         // Initialize
