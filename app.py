@@ -1,6 +1,7 @@
 from flask import Flask, render_template, jsonify, request
 from youtube_api import YouTubeChannel
 from transcriber import TranscriptExtractor
+from translator import TranslationService
 import config
 from flask_cors import CORS
 
@@ -9,6 +10,7 @@ CORS(app)
 
 yt = YouTubeChannel(config.YOUTUBE_API_KEY)
 transcriber = TranscriptExtractor()
+translator = TranslationService()
 
 # Resolve channel ID once at startup
 CHANNEL_ID = yt.resolve_handle(config.RAF_TALKS_HANDLE)
@@ -22,6 +24,11 @@ else:
 @app.route('/')
 def index():
     return render_template('index.html')
+
+
+@app.route('/translate')
+def translate_page():
+    return render_template('translate.html')
 
 
 @app.route('/api/channel/videos', methods=['GET'])
@@ -76,5 +83,24 @@ def extract_transcript():
     return jsonify({'results': results})
 
 
+@app.route('/api/languages', methods=['GET'])
+def get_languages():
+    return jsonify({'languages': TranslationService.get_languages()})
+
+
+@app.route('/api/translate', methods=['POST'])
+def translate_text():
+    data = request.json
+    text = data.get('text', '')
+    target_lang = data.get('target_lang', 'es')
+    
+    if not text:
+        return jsonify({'error': 'No text provided'}), 400
+    
+    result = translator.translate(text, target_lang)
+    return jsonify(result)
+
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
+

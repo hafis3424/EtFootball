@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RafLocalizer - Translation</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="logo">
+            <a href="/"
+                style="display: flex; align-items: center; gap: 0.75rem; text-decoration: none; color: inherit;">
+                <div class="logo-icon">
+                    <i class="fab fa-youtube"></i>
+                </div>
+                <span class="logo-text">Raf<span class="accent">Localizer</span></span>
+            </a>
+        </div>
+        <div class="header-actions">
+            <span class="phase-badge"><i class="fas fa-language"></i> PHASE 2: TRANSLATION</span>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="translate-container">
+        <!-- Transcript Selector -->
+        <div class="transcript-selector">
+            <label for="transcript-select"><i class="fas fa-video"></i> Select Transcript:</label>
+            <select id="transcript-select">
+                <!-- Options injected by JS -->
+            </select>
+        </div>
+
+        <!-- Two Column Layout -->
+        <div class="translate-columns">
+            <!-- Left: Original Transcript -->
+            <div class="column">
+                <div class="column-header">
+                    <h3><i class="fas fa-file-alt"></i> Original Transcript</h3>
+                    <div class="column-actions">
+                        <button class="btn btn-sm btn-ghost" id="copy-original">
+                            <i class="far fa-copy"></i> Copy
+                        </button>
+                    </div>
+                </div>
+                <textarea id="original-text" placeholder="Original transcript will appear here..."></textarea>
+            </div>
+
+            <!-- Center: Controls -->
+            <div class="translate-controls">
+                <div class="language-selector">
+                    <label for="target-lang">Translate to:</label>
+                    <select id="target-lang">
+                        <!-- Languages loaded from API -->
+                    </select>
+                </div>
+                <button class="btn btn-translate" id="translate-btn">
+                    <i class="fas fa-language"></i>
+                    Translate
+                </button>
+            </div>
+
+            <!-- Right: Translated Text -->
+            <div class="column">
+                <div class="column-header">
+                    <h3><i class="fas fa-globe"></i> Translated Text</h3>
+                    <div class="column-actions">
+                        <button class="btn btn-sm btn-ghost" id="copy-translated">
+                            <i class="far fa-copy"></i> Copy
+                        </button>
+                        <button class="btn btn-sm btn-ghost" id="download-translated">
+                            <i class="fas fa-download"></i>
+                        </button>
+                    </div>
+                </div>
+                <textarea id="translated-text"
+                    placeholder="Translated text will appear here. You can edit it manually."></textarea>
+            </div>
+        </div>
+
+        <!-- Status -->
+        <div class="translate-status" id="status"></div>
+    </div>
+
+    <script>
+        let transcripts = [];
+        let currentTranscript = null;
+
+        const transcriptSelect = document.getElementById('transcript-select');
+        const originalText = document.getElementById('original-text');
+        const translatedText = document.getElementById('translated-text');
+        const targetLang = document.getElementById('target-lang');
+        const translateBtn = document.getElementById('translate-btn');
+        const status = document.getElementById('status');
+
+        // Load transcripts from sessionStorage
+        function loadTranscripts() {
+            const stored = sessionStorage.getItem('transcripts');
+            if (!stored) {
+                status.innerHTML = '<i class="fas fa-exclamation-circle"></i> No transcripts found. <a href="/">Go back to extract transcripts</a>';
+                status.className = 'translate-status error';
+                return;
+            }
+
+            transcripts = JSON.parse(stored);
+
+            // Populate select
+            transcriptSelect.innerHTML = transcripts.map((t, i) =>
+                `<option value="${i}">${t.title}</option>`
+            ).join('');
+
+            // Select first
+            selectTranscript(0);
+        }
+
+        function selectTranscript(index) {
+            currentTranscript = transcripts[index];
+            originalText.value = currentTranscript.transcript;
+            translatedText.value = '';
+        }
+
+        // Load languages
+        async function loadLanguages() {
+            try {
+                const res = await fetch('/api/languages');
+                const data = await res.json();
+
+                targetLang.innerHTML = Object.entries(data.languages)
+                    .map(([code, name]) => `<option value="${code}">${name}</option>`)
+                    .join('');
+            } catch (err) {
+                console.error('Failed to load languages', err);
+            }
+        }
+
+        // Translate
+        translateBtn.addEventListener('click', async () => {
+            const text = originalText.value.trim();
+            if (!text) {
+                status.innerHTML = '<i class="fas fa-exclamation-circle"></i> No text to translate';
+                status.className = 'translate-status error';
+                return;
+            }
+
+            translateBtn.disabled = true;
+            translateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Translating...';
+            status.innerHTML = '<i class="fas fa-hourglass-half"></i> Translation in progress...';
+            status.className = 'translate-status loading';
+
+            try {
+                const res = await fetch('/api/translate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        text: text,
+                        target_lang: targetLang.value
+                    })
+                });
+
+                const data = await res.json();
+
+                if (data.success) {
+                    translatedText.value = data.translated_text;
+                    status.innerHTML = '<i class="fas fa-check-circle"></i> Translation complete. You can edit the text above.';
+                    status.className = 'translate-status success';
+                } else {
+                    status.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + data.error;
+                    status.className = 'translate-status error';
+                }
+            } catch (err) {
+                status.innerHTML = '<i class="fas fa-exclamation-circle"></i> Translation failed';
+                status.className = 'translate-status error';
+            } finally {
+                translateBtn.disabled = false;
+                translateBtn.innerHTML = '<i class="fas fa-language"></i> Translate';
+            }
+        });
+
+        // Transcript selector change
+        transcriptSelect.addEventListener('change', (e) => {
+            selectTranscript(parseInt(e.target.value));
+        });
+
+        // Copy buttons
+        document.getElementById('copy-original').addEventListener('click', () => {
+            navigator.clipboard.writeText(originalText.value);
+            showCopied('copy-original');
+        });
+
+        document.getElementById('copy-translated').addEventListener('click', () => {
+            navigator.clipboard.writeText(translatedText.value);
+            showCopied('copy-translated');
+        });
+
+        function showCopied(btnId) {
+            const btn = document.getElementById(btnId);
+            const original = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+            setTimeout(() => btn.innerHTML = original, 2000);
+        }
+
+        // Download translated
+        document.getElementById('download-translated').addEventListener('click', () => {
+            const text = translatedText.value;
+            if (!text) return;
+
+            const title = currentTranscript ? currentTranscript.title.replace(/[^a-z0-9]/gi, '_') : 'translated';
+            const lang = targetLang.options[targetLang.selectedIndex].text;
+            const blob = new Blob([text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${title}_${lang}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        // Initialize
+        loadLanguages();
+        loadTranscripts();
+    </script>
+</body>
+
+</html>

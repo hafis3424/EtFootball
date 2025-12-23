@@ -189,6 +189,9 @@
         function renderTranscripts(results) {
             transcriptContent.innerHTML = '';
 
+            // Store results for Phase 2
+            window.transcriptResults = results;
+
             results.forEach(result => {
                 const item = document.createElement('div');
                 item.className = 'transcript-item';
@@ -222,6 +225,27 @@
 
                 transcriptContent.appendChild(item);
             });
+
+            // Add Phase 2 button at the bottom
+            const successResults = results.filter(r => r.success);
+            if (successResults.length > 0) {
+                const phase2Div = document.createElement('div');
+                phase2Div.className = 'phase2-button-container';
+                phase2Div.innerHTML = `
+                    <button class="btn btn-phase2" id="goto-phase2">
+                        <i class="fas fa-language"></i>
+                        Move to Phase 2 - Translation
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
+                `;
+                transcriptContent.appendChild(phase2Div);
+
+                document.getElementById('goto-phase2').addEventListener('click', () => {
+                    // Store successful transcripts in sessionStorage
+                    sessionStorage.setItem('transcripts', JSON.stringify(successResults));
+                    window.location.href = '/translate';
+                });
+            }
 
             // Attach copy/download handlers
             document.querySelectorAll('.copy-btn').forEach(btn => {
