@@ -726,3 +726,137 @@ body {
         padding: 0;
     }
 }
+
+/* ===== Transcript Cards (New Workflow) ===== */
+.transcript-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    margin-bottom: 2rem;
+    overflow: hidden;
+}
+
+.transcript-card-header {
+    padding: 1rem 1.5rem;
+    background: rgba(255, 255, 255, 0.02);
+    border-bottom: 1px solid var(--border);
+}
+
+.transcript-card-header h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.transcript-card-header h3 i {
+    color: var(--accent);
+}
+
+.translate-step {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.translate-step:last-child {
+    border-bottom: none;
+}
+
+.step-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.step-number {
+    width: 28px;
+    height: 28px;
+    background: linear-gradient(135deg, var(--accent), #ff6b8a);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.step-header h4 {
+    flex: 1;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.step-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.step-textarea {
+    width: 100%;
+    min-height: 150px;
+    padding: 1rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.9rem;
+    line-height: 1.7;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.2s ease;
+}
+
+.step-textarea:focus {
+    border-color: var(--accent);
+}
+
+.step-textarea::placeholder {
+    color: var(--text-muted);
+}
+
+.target-lang-select {
+    padding: 0.5rem 1rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 0.85rem;
+    outline: none;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--accent), #ff6b8a);
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: all 0.2s ease;
+}
+
+.btn-primary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 5px 15px var(--accent-glow);
+}
+
+.btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+#transcripts-list {
+    max-width: 1200px;
+    margin: 0 auto;
+}

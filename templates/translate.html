@@ -29,79 +29,23 @@
 
     <!-- Main Container -->
     <div class="translate-container">
-        <!-- Transcript Selector -->
-        <div class="transcript-selector">
-            <label for="transcript-select"><i class="fas fa-video"></i> Select Transcript:</label>
-            <select id="transcript-select">
-                <!-- Options injected by JS -->
-            </select>
-        </div>
-
-        <!-- Two Column Layout -->
-        <div class="translate-columns">
-            <!-- Left: Original Transcript -->
-            <div class="column">
-                <div class="column-header">
-                    <h3><i class="fas fa-file-alt"></i> Original Transcript</h3>
-                    <div class="column-actions">
-                        <button class="btn btn-sm btn-ghost" id="copy-original">
-                            <i class="far fa-copy"></i> Copy
-                        </button>
-                    </div>
-                </div>
-                <textarea id="original-text" placeholder="Original transcript will appear here..."></textarea>
-            </div>
-
-            <!-- Center: Controls -->
-            <div class="translate-controls">
-                <div class="language-selector">
-                    <label for="target-lang">Translate to:</label>
-                    <select id="target-lang">
-                        <!-- Languages loaded from API -->
-                    </select>
-                </div>
-                <button class="btn btn-translate" id="translate-btn">
-                    <i class="fas fa-language"></i>
-                    Translate
-                </button>
-            </div>
-
-            <!-- Right: Translated Text -->
-            <div class="column">
-                <div class="column-header">
-                    <h3><i class="fas fa-globe"></i> Translated Text</h3>
-                    <div class="column-actions">
-                        <button class="btn btn-sm btn-ghost" id="copy-translated">
-                            <i class="far fa-copy"></i> Copy
-                        </button>
-                        <button class="btn btn-sm btn-ghost" id="download-translated">
-                            <i class="fas fa-download"></i>
-                        </button>
-                    </div>
-                </div>
-                <textarea id="translated-text"
-                    placeholder="Translated text will appear here. You can edit it manually."></textarea>
-            </div>
-        </div>
-
         <!-- Status -->
         <div class="translate-status" id="status"></div>
+
+        <!-- All transcripts listed vertically -->
+        <div id="transcripts-list">
+            <!-- Transcript cards injected here -->
+        </div>
     </div>
 
     <script>
         let transcripts = [];
-        let currentTranscript = null;
-
-        const transcriptSelect = document.getElementById('transcript-select');
-        const originalText = document.getElementById('original-text');
-        const translatedText = document.getElementById('translated-text');
-        const targetLang = document.getElementById('target-lang');
-        const translateBtn = document.getElementById('translate-btn');
-        const status = document.getElementById('status');
 
         // Load transcripts from sessionStorage
-        function loadTranscripts() {
+        function init() {
             const stored = sessionStorage.getItem('transcripts');
+            const status = document.getElementById('status');
+
             if (!stored) {
                 status.innerHTML = '<i class="fas fa-exclamation-circle"></i> No transcripts found. <a href="/">Go back to extract transcripts</a>';
                 status.className = 'translate-status error';
@@ -109,121 +53,248 @@
             }
 
             transcripts = JSON.parse(stored);
-
-            // Populate select
-            transcriptSelect.innerHTML = transcripts.map((t, i) =>
-                `<option value="${i}">${t.title}</option>`
-            ).join('');
-
-            // Select first
-            selectTranscript(0);
+            renderAllTranscripts();
         }
 
-        function selectTranscript(index) {
-            currentTranscript = transcripts[index];
-            originalText.value = currentTranscript.transcript;
-            translatedText.value = '';
+        function renderAllTranscripts() {
+            const container = document.getElementById('transcripts-list');
+            container.innerHTML = '';
+
+            transcripts.forEach((t, index) => {
+                const card = document.createElement('div');
+                card.className = 'transcript-card';
+                card.innerHTML = `
+                    <div class="transcript-card-header">
+                        <h3><i class="fas fa-video"></i> ${t.title}</h3>
+                    </div>
+                    
+                    <!-- Step 1: Original Transcript -->
+                    <div class="translate-step">
+                        <div class="step-header">
+                            <span class="step-number">1</span>
+                            <h4>Original Transcript</h4>
+                            <div class="step-actions">
+                                <button class="btn btn-sm btn-ghost copy-btn" data-target="original-${index}">
+                                    <i class="far fa-copy"></i> Copy
+                                </button>
+                            </div>
+                        </div>
+                        <textarea id="original-${index}" class="step-textarea">${t.transcript}</textarea>
+                    </div>
+
+                    <!-- Step 2: Translate to English -->
+                    <div class="translate-step">
+                        <div class="step-header">
+                            <span class="step-number">2</span>
+                            <h4>English Translation</h4>
+                            <div class="step-actions">
+                                <button class="btn btn-sm btn-primary translate-to-en-btn" data-index="${index}">
+                                    <i class="fas fa-language"></i> Translate to English
+                                </button>
+                                <button class="btn btn-sm btn-ghost copy-btn" data-target="english-${index}">
+                                    <i class="far fa-copy"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <textarea id="english-${index}" class="step-textarea" placeholder="Click 'Translate to English' above. Edit text here to fix errors before translating to other languages."></textarea>
+                    </div>
+
+                    <!-- Step 3: Translate to Target Language -->
+                    <div class="translate-step">
+                        <div class="step-header">
+                            <span class="step-number">3</span>
+                            <h4>Final Translation</h4>
+                            <div class="step-actions">
+                                <select class="target-lang-select" id="lang-${index}">
+                                    <option value="es">Spanish</option>
+                                    <option value="pt">Portuguese</option>
+                                    <option value="fr">French</option>
+                                    <option value="de">German</option>
+                                    <option value="it">Italian</option>
+                                    <option value="ar">Arabic</option>
+                                    <option value="hi">Hindi</option>
+                                    <option value="zh-CN">Chinese</option>
+                                    <option value="ja">Japanese</option>
+                                    <option value="ko">Korean</option>
+                                </select>
+                                <button class="btn btn-sm btn-primary translate-final-btn" data-index="${index}">
+                                    <i class="fas fa-language"></i> Translate
+                                </button>
+                                <button class="btn btn-sm btn-ghost copy-btn" data-target="final-${index}">
+                                    <i class="far fa-copy"></i>
+                                </button>
+                                <button class="btn btn-sm btn-ghost download-btn" data-index="${index}">
+                                    <i class="fas fa-download"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <textarea id="final-${index}" class="step-textarea" placeholder="Translate from English (Step 2) to your target language. You can edit the result here."></textarea>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            attachEventHandlers();
+
+            // Auto-translate on page load
+            autoTranslateAll();
         }
 
-        // Load languages
-        async function loadLanguages() {
-            try {
-                const res = await fetch('/api/languages');
-                const data = await res.json();
+        function attachEventHandlers() {
+            // Translate to English buttons
+            document.querySelectorAll('.translate-to-en-btn').forEach(btn => {
+                btn.addEventListener('click', () => translateToEnglish(btn.dataset.index));
+            });
 
-                targetLang.innerHTML = Object.entries(data.languages)
-                    .map(([code, name]) => `<option value="${code}">${name}</option>`)
-                    .join('');
-            } catch (err) {
-                console.error('Failed to load languages', err);
+            // Translate to final language buttons
+            document.querySelectorAll('.translate-final-btn').forEach(btn => {
+                btn.addEventListener('click', () => translateToFinal(btn.dataset.index));
+            });
+
+            // Copy buttons
+            document.querySelectorAll('.copy-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const targetId = btn.dataset.target;
+                    const textarea = document.getElementById(targetId);
+                    if (textarea && textarea.value) {
+                        navigator.clipboard.writeText(textarea.value);
+                        const original = btn.innerHTML;
+                        btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                        setTimeout(() => btn.innerHTML = original, 2000);
+                    }
+                });
+            });
+
+            // Download buttons
+            document.querySelectorAll('.download-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const index = btn.dataset.index;
+                    const text = document.getElementById(`final-${index}`).value;
+                    if (!text) return;
+
+                    const title = transcripts[index].title.replace(/[^a-z0-9]/gi, '_');
+                    const langSelect = document.getElementById(`lang-${index}`);
+                    const lang = langSelect.options[langSelect.selectedIndex].text;
+
+                    const blob = new Blob([text], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${title}_${lang}.txt`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                });
+            });
+        }
+
+        // Auto-translate to English
+        async function translateToEnglish(index) {
+            const originalText = document.getElementById(`original-${index}`).value;
+            const englishTextarea = document.getElementById(`english-${index}`);
+            const btn = document.querySelector(`.translate-to-en-btn[data-index="${index}"]`);
+
+            if (!originalText.trim()) return;
+
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Translating...';
             }
-        }
-
-        // Translate
-        translateBtn.addEventListener('click', async () => {
-            const text = originalText.value.trim();
-            if (!text) {
-                status.innerHTML = '<i class="fas fa-exclamation-circle"></i> No text to translate';
-                status.className = 'translate-status error';
-                return;
-            }
-
-            translateBtn.disabled = true;
-            translateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Translating...';
-            status.innerHTML = '<i class="fas fa-hourglass-half"></i> Translation in progress...';
-            status.className = 'translate-status loading';
 
             try {
                 const res = await fetch('/api/translate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        text: text,
-                        target_lang: targetLang.value
-                    })
+                    body: JSON.stringify({ text: originalText, target_lang: 'en' })
                 });
-
                 const data = await res.json();
 
                 if (data.success) {
-                    translatedText.value = data.translated_text;
-                    status.innerHTML = '<i class="fas fa-check-circle"></i> Translation complete. You can edit the text above.';
-                    status.className = 'translate-status success';
+                    englishTextarea.value = data.translated_text;
+                    return data.translated_text;
                 } else {
-                    status.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + data.error;
-                    status.className = 'translate-status error';
+                    englishTextarea.value = 'Error: ' + data.error;
                 }
             } catch (err) {
-                status.innerHTML = '<i class="fas fa-exclamation-circle"></i> Translation failed';
-                status.className = 'translate-status error';
+                englishTextarea.value = 'Translation failed';
             } finally {
-                translateBtn.disabled = false;
-                translateBtn.innerHTML = '<i class="fas fa-language"></i> Translate';
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-language"></i> Translate to English';
+                }
             }
-        });
-
-        // Transcript selector change
-        transcriptSelect.addEventListener('change', (e) => {
-            selectTranscript(parseInt(e.target.value));
-        });
-
-        // Copy buttons
-        document.getElementById('copy-original').addEventListener('click', () => {
-            navigator.clipboard.writeText(originalText.value);
-            showCopied('copy-original');
-        });
-
-        document.getElementById('copy-translated').addEventListener('click', () => {
-            navigator.clipboard.writeText(translatedText.value);
-            showCopied('copy-translated');
-        });
-
-        function showCopied(btnId) {
-            const btn = document.getElementById(btnId);
-            const original = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
-            setTimeout(() => btn.innerHTML = original, 2000);
+            return null;
         }
 
-        // Download translated
-        document.getElementById('download-translated').addEventListener('click', () => {
-            const text = translatedText.value;
-            if (!text) return;
+        // Auto-translate to final language
+        async function translateToFinal(index) {
+            const englishText = document.getElementById(`english-${index}`).value;
+            const targetLang = document.getElementById(`lang-${index}`).value;
+            const finalTextarea = document.getElementById(`final-${index}`);
+            const btn = document.querySelector(`.translate-final-btn[data-index="${index}"]`);
 
-            const title = currentTranscript ? currentTranscript.title.replace(/[^a-z0-9]/gi, '_') : 'translated';
-            const lang = targetLang.options[targetLang.selectedIndex].text;
-            const blob = new Blob([text], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${title}_${lang}.txt`;
-            a.click();
-            URL.revokeObjectURL(url);
-        });
+            if (!englishText.trim()) {
+                finalTextarea.value = 'Please translate to English first (Step 2)';
+                return;
+            }
+
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Translating...';
+            }
+
+            try {
+                const res = await fetch('/api/translate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: englishText, target_lang: targetLang })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    finalTextarea.value = data.translated_text;
+                } else {
+                    finalTextarea.value = 'Error: ' + data.error;
+                }
+            } catch (err) {
+                finalTextarea.value = 'Translation failed';
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-language"></i> Translate';
+                }
+            }
+        }
+
+        // Auto-translate all transcripts on page load
+        async function autoTranslateAll() {
+            const status = document.getElementById('status');
+            status.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Auto-translating all transcripts...';
+            status.className = 'translate-status loading';
+
+            for (let i = 0; i < transcripts.length; i++) {
+                // Step 1: Translate to English
+                const englishText = await translateToEnglish(i);
+
+                // Small delay between API calls
+                await new Promise(r => setTimeout(r, 500));
+
+                // Step 2: Translate to Spanish (default)
+                if (englishText) {
+                    await translateToFinal(i);
+                }
+
+                // Small delay between transcripts
+                if (i < transcripts.length - 1) {
+                    await new Promise(r => setTimeout(r, 500));
+                }
+            }
+
+            status.innerHTML = '<i class="fas fa-check-circle"></i> All translations complete. Edit the text as needed.';
+            status.className = 'translate-status success';
+        }
 
         // Initialize
-        loadLanguages();
-        loadTranscripts();
+        init();
     </script>
 </body>
 
