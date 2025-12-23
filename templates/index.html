@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RafLocalizer - Transcript Extractor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="logo">
+            <div class="logo-icon">
+                <i class="fab fa-youtube"></i>
+            </div>
+            <span class="logo-text">Raf<span class="accent">Localizer</span></span>
+        </div>
+        <div class="header-actions">
+            <span class="dev-badge"><i class="fas fa-code"></i> DEV MODE</span>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Left Panel: Video Grid -->
+        <div class="videos-panel">
+            <div class="panel-header">
+                <h2><i class="fas fa-video"></i> Select Videos</h2>
+                <div class="controls">
+                    <button class="btn btn-ghost" id="refresh-btn">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                    <button class="btn btn-ghost" id="select-all-btn">
+                        <i class="far fa-check-square"></i> All
+                    </button>
+                </div>
+            </div>
+
+            <div class="search-container">
+                <i class="fas fa-search"></i>
+                <input type="text" id="search-input" placeholder="Search videos...">
+            </div>
+
+            <div class="video-grid" id="video-grid">
+                <!-- Videos injected here -->
+            </div>
+
+            <div class="loading-spinner" id="loading">
+                <div class="spinner"></div>
+                <p>Loading videos...</p>
+            </div>
+        </div>
+
+        <!-- Right Panel: Transcript -->
+        <div class="transcript-panel" id="transcript-panel">
+            <div class="panel-header">
+                <h2><i class="fas fa-file-alt"></i> Transcripts</h2>
+                <button class="btn btn-ghost" id="close-panel">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="transcript-content" id="transcript-content">
+                <div class="empty-state">
+                    <i class="fas fa-hand-pointer"></i>
+                    <p>Select videos and click "Get Transcripts" to extract</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Action Button -->
+    <button class="fab-button" id="extract-btn" disabled>
+        <i class="fas fa-magic"></i>
+        <span>Get Transcripts</span>
+        <span class="count" id="selected-count">0</span>
+    </button>
+
+    <script>
+        // State
+        let selectedVideos = new Map(); // Map<id, {title, thumbnail}>
+        const videoGrid = document.getElementById('video-grid');
+        const loading = document.getElementById('loading');
+        const extractBtn = document.getElementById('extract-btn');
+        const selectedCount = document.getElementById('selected-count');
+        const transcriptPanel = document.getElementById('transcript-panel');
+        const transcriptContent = document.getElementById('transcript-content');
+        const searchInput = document.getElementById('search-input');
+
+        // Load videos on start
+        async function loadVideos(isSearch = false) {
+            loading.style.display = 'flex';
+            videoGrid.innerHTML = '';
+
+            const endpoint = isSearch
+                ? `/api/channel/search?q=${encodeURIComponent(searchInput.value)}`
+                : '/api/channel/videos';
+
+            try {
+                const res = await fetch(endpoint);
+                const data = await res.json();
+
+                if (data.error) {
+                    videoGrid.innerHTML = `<div class="error-state"><i class="fas fa-exclamation-circle"></i><p>${data.error}</p></div>`;
+                    return;
+                }
+
+                renderVideos(data.videos);
+            } catch (err) {
+                videoGrid.innerHTML = `<div class="error-state"><i class="fas fa-exclamation-circle"></i><p>Failed to load videos</p></div>`;
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        function renderVideos(videos) {
+            videos.forEach(video => {
+                const card = document.createElement('div');
+                card.className = 'video-card';
+                card.dataset.id = video.video_id;
+                card.innerHTML = `
+                    <div class="thumbnail">
+                        <img src="${video.thumbnail_url}" alt="${video.title}">
+                        <div class="check-overlay">
+                            <i class="fas fa-check"></i>
+                        </div>
+                    </div>
+                    <div class="video-info">
+                        <p class="video-title">${video.title}</p>
+                        <span class="video-date">${new Date(video.published_at).toLocaleDateString()}</span>
+                    </div>
+                `;
+
+                card.addEventListener('click', () => toggleVideo(video, card));
+                videoGrid.appendChild(card);
+            });
+        }
+
+        function toggleVideo(video, card) {
+            const id = video.video_id;
+            if (selectedVideos.has(id)) {
+                selectedVideos.delete(id);
+                card.classList.remove('selected');
+            } else {
+                selectedVideos.set(id, { title: video.title, thumbnail: video.thumbnail_url });
+                card.classList.add('selected');
+            }
+            updateSelectedCount();
+        }
+
+        function updateSelectedCount() {
+            const count = selectedVideos.size;
+            selectedCount.textContent = count;
+            extractBtn.disabled = count === 0;
+        }
+
+        // Extract transcripts
+        extractBtn.addEventListener('click', async () => {
+            if (selectedVideos.size === 0) return;
+
+            extractBtn.disabled = true;
+            extractBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Extracting...</span>';
+
+            transcriptPanel.classList.add('open');
+            transcriptContent.innerHTML = '<div class="loading-spinner"><div class="spinner"></div><p>Fetching transcripts...</p></div>';
+
+            try {
+                const ids = Array.from(selectedVideos.keys());
+                const res = await fetch('/api/transcript', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ video_ids: ids })
+                });
+
+                const data = await res.json();
+                renderTranscripts(data.results);
+            } catch (err) {
+                transcriptContent.innerHTML = '<div class="error-state"><i class="fas fa-exclamation-circle"></i><p>Failed to extract transcripts</p></div>';
+            } finally {
+                extractBtn.disabled = false;
+                extractBtn.innerHTML = '<i class="fas fa-magic"></i><span>Get Transcripts</span><span class="count" id="selected-count">' + selectedVideos.size + '</span>';
+            }
+        });
+
+        function renderTranscripts(results) {
+            transcriptContent.innerHTML = '';
+
+            results.forEach(result => {
+                const item = document.createElement('div');
+                item.className = 'transcript-item';
+
+                if (result.success) {
+                    item.innerHTML = `
+                        <div class="transcript-header">
+                            <h3>${result.title}</h3>
+                            <div class="transcript-actions">
+                                <button class="btn btn-sm btn-ghost copy-btn" data-text="${encodeURIComponent(result.transcript)}">
+                                    <i class="far fa-copy"></i> Copy
+                                </button>
+                                <button class="btn btn-sm btn-ghost download-btn" data-title="${result.title}" data-text="${encodeURIComponent(result.transcript)}">
+                                    <i class="fas fa-download"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="transcript-text">${result.transcript}</div>
+                    `;
+                } else {
+                    item.innerHTML = `
+                        <div class="transcript-header error">
+                            <h3>${result.title || result.video_id}</h3>
+                        </div>
+                        <div class="transcript-error">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            ${result.error}
+                        </div>
+                    `;
+                }
+
+                transcriptContent.appendChild(item);
+            });
+
+            // Attach copy/download handlers
+            document.querySelectorAll('.copy-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const text = decodeURIComponent(btn.dataset.text);
+                    navigator.clipboard.writeText(text);
+                    btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                    setTimeout(() => btn.innerHTML = '<i class="far fa-copy"></i> Copy', 2000);
+                });
+            });
+
+            document.querySelectorAll('.download-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const text = decodeURIComponent(btn.dataset.text);
+                    const title = btn.dataset.title.replace(/[^a-z0-9]/gi, '_');
+                    const blob = new Blob([text], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${title}.txt`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                });
+            });
+        }
+
+        // Event listeners
+        document.getElementById('refresh-btn').addEventListener('click', () => loadVideos());
+
+        document.getElementById('select-all-btn').addEventListener('click', () => {
+            const cards = document.querySelectorAll('.video-card');
+            const allSelected = Array.from(cards).every(c => c.classList.contains('selected'));
+
+            cards.forEach(card => {
+                const id = card.dataset.id;
+                const title = card.querySelector('.video-title').textContent;
+                const thumbnail = card.querySelector('img').src;
+
+                if (allSelected) {
+                    selectedVideos.delete(id);
+                    card.classList.remove('selected');
+                } else {
+                    selectedVideos.set(id, { title, thumbnail });
+                    card.classList.add('selected');
+                }
+            });
+            updateSelectedCount();
+        });
+
+        document.getElementById('close-panel').addEventListener('click', () => {
+            transcriptPanel.classList.remove('open');
+        });
+
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') loadVideos(true);
+        });
+
+        // Initialize
+        loadVideos();
+    </script>
+</body>
+
+</html>
