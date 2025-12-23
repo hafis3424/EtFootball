@@ -180,12 +180,18 @@
                         <div class="production-item">
                             <div class="production-label">
                                 <span>🖼️ Thumbnail</span>
-                                <a href="https://img.youtube.com/vi/${t.video_id}/maxresdefault.jpg" 
-                                   download="${t.video_id}_thumbnail.jpg" 
-                                   class="btn btn-sm btn-ghost" 
-                                   target="_blank">
-                                    <i class="fas fa-download"></i> Download
-                                </a>
+                                <div class="thumbnail-actions">
+                                    <button class="btn btn-sm btn-ghost copy-thumbnail-btn" 
+                                            data-url="https://img.youtube.com/vi/${t.video_id}/maxresdefault.jpg">
+                                        <i class="far fa-copy"></i> Copy URL
+                                    </button>
+                                    <a href="https://img.youtube.com/vi/${t.video_id}/maxresdefault.jpg" 
+                                       download="${t.video_id}_thumbnail.jpg" 
+                                       class="btn btn-sm btn-ghost" 
+                                       target="_blank">
+                                        <i class="fas fa-download"></i> Download
+                                    </a>
+                                </div>
                             </div>
                             <div class="thumbnail-preview">
                                 <img src="https://img.youtube.com/vi/${t.video_id}/maxresdefault.jpg" 
@@ -253,6 +259,17 @@
             // Generate Production buttons
             document.querySelectorAll('.generate-production-btn').forEach(btn => {
                 btn.addEventListener('click', () => generateProduction(btn.dataset.index));
+            });
+
+            // Copy Thumbnail URL buttons
+            document.querySelectorAll('.copy-thumbnail-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const url = btn.dataset.url;
+                    navigator.clipboard.writeText(url);
+                    const original = btn.innerHTML;
+                    btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                    setTimeout(() => btn.innerHTML = original, 2000);
+                });
             });
         }
 

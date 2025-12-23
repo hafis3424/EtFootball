@@ -909,6 +909,11 @@ body {
 }
 
 /* Thumbnail Preview */
+.thumbnail-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
 .thumbnail-preview {
     border-radius: 8px;
     overflow: hidden;
