@@ -182,8 +182,8 @@
                                 <span>🖼️ Thumbnail</span>
                                 <div class="thumbnail-actions">
                                     <button class="btn btn-sm btn-ghost copy-thumbnail-btn" 
-                                            data-url="https://img.youtube.com/vi/${t.video_id}/maxresdefault.jpg">
-                                        <i class="far fa-copy"></i> Copy URL
+                                            data-video-id="${t.video_id}">
+                                        <i class="far fa-copy"></i> Copy Image
                                     </button>
                                     <a href="https://img.youtube.com/vi/${t.video_id}/maxresdefault.jpg" 
                                        download="${t.video_id}_thumbnail.jpg" 
@@ -261,14 +261,40 @@
                 btn.addEventListener('click', () => generateProduction(btn.dataset.index));
             });
 
-            // Copy Thumbnail URL buttons
+            // Copy Thumbnail Image buttons
             document.querySelectorAll('.copy-thumbnail-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const url = btn.dataset.url;
-                    navigator.clipboard.writeText(url);
-                    const original = btn.innerHTML;
-                    btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
-                    setTimeout(() => btn.innerHTML = original, 2000);
+                btn.addEventListener('click', async () => {
+                    const videoId = btn.dataset.videoId;
+                    const imageUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Copying...';
+                    btn.disabled = true;
+
+                    try {
+                        // Fetch the image
+                        const response = await fetch(imageUrl);
+                        const blob = await response.blob();
+
+                        // Copy to clipboard
+                        await navigator.clipboard.write([
+                            new ClipboardItem({ [blob.type]: blob })
+                        ]);
+
+                        btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                        setTimeout(() => {
+                            btn.innerHTML = '<i class="far fa-copy"></i> Copy Image';
+                            btn.disabled = false;
+                        }, 2000);
+                    } catch (err) {
+                        console.error('Failed to copy image:', err);
+                        // Fallback: copy URL
+                        navigator.clipboard.writeText(imageUrl);
+                        btn.innerHTML = '<i class="fas fa-check"></i> URL Copied';
+                        setTimeout(() => {
+                            btn.innerHTML = '<i class="far fa-copy"></i> Copy Image';
+                            btn.disabled = false;
+                        }, 2000);
+                    }
                 });
             });
         }
