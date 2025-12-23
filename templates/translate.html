@@ -175,6 +175,24 @@
                             </div>
                             <textarea id="prod-tags-${index}" class="production-textarea" placeholder="YouTube tags will appear here..."></textarea>
                         </div>
+
+                        <!-- Thumbnail -->
+                        <div class="production-item">
+                            <div class="production-label">
+                                <span>🖼️ Thumbnail</span>
+                                <a href="https://img.youtube.com/vi/${t.video_id}/maxresdefault.jpg" 
+                                   download="${t.video_id}_thumbnail.jpg" 
+                                   class="btn btn-sm btn-ghost" 
+                                   target="_blank">
+                                    <i class="fas fa-download"></i> Download
+                                </a>
+                            </div>
+                            <div class="thumbnail-preview">
+                                <img src="https://img.youtube.com/vi/${t.video_id}/maxresdefault.jpg" 
+                                     alt="Video Thumbnail"
+                                     onerror="this.src='https://img.youtube.com/vi/${t.video_id}/hqdefault.jpg'">
+                            </div>
+                        </div>
                     </div>
                 `;
                 container.appendChild(card);

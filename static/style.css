@@ -907,3 +907,16 @@ body {
 .production-textarea::placeholder {
     color: var(--text-muted);
 }
+
+/* Thumbnail Preview */
+.thumbnail-preview {
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+}
+
+.thumbnail-preview img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
