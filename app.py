@@ -145,12 +145,12 @@ def generate_production():
         return jsonify({'error': 'No English text provided'}), 400
     
     try:
-        from google import genai
         import json
-        client = genai.Client(api_key=config.GEMINI_API_KEY)
         
-        # Get current model
+        # Get current model and its provider
         current_model = TranslationService.get_current_model()
+        model_info = config.AVAILABLE_MODELS.get(current_model, {})
+        provider = model_info.get('provider', 'google')
         
         # Single combined prompt for all outputs
         combined_prompt = f"""Generate YouTube production content in Spanish for this football video.
@@ -173,13 +173,34 @@ RULES FOR EACH FIELD:
 
 Return ONLY the JSON, nothing else."""
 
-        response = client.models.generate_content(
-            model=current_model,
-            contents=combined_prompt
-        )
+        # Call appropriate API based on provider
+        if provider == 'groq':
+            # Use Groq API
+            if not config.GROQ_API_KEY:
+                return jsonify({'success': False, 'error': 'Groq API key not configured'})
+            
+            from groq import Groq
+            groq_client = Groq(api_key=config.GROQ_API_KEY)
+            
+            completion = groq_client.chat.completions.create(
+                model=current_model,
+                messages=[{"role": "user", "content": combined_prompt}],
+                temperature=0.7,
+                max_completion_tokens=2048,
+                stream=False
+            )
+            response_text = completion.choices[0].message.content.strip()
+        else:
+            # Use Gemini/Gemma API
+            from google import genai
+            client = genai.Client(api_key=config.GEMINI_API_KEY)
+            
+            response = client.models.generate_content(
+                model=current_model,
+                contents=combined_prompt
+            )
+            response_text = response.text.strip()
         
-        # Parse the JSON response
-        response_text = response.text.strip()
         # Remove any markdown code blocks if present
         if response_text.startswith('```'):
             response_text = response_text.split('```')[1]
@@ -205,3 +226,4 @@ Return ONLY the JSON, nothing else."""
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
+

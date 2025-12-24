@@ -492,6 +492,7 @@
 
             const geminiModels = Object.entries(availableModels).filter(([k, v]) => v.category === 'gemini');
             const gemmaModels = Object.entries(availableModels).filter(([k, v]) => v.category === 'gemma');
+            const groqModels = Object.entries(availableModels).filter(([k, v]) => v.category === 'groq');
 
             if (geminiModels.length > 0) {
                 html += '<div class="model-category">Gemini Models</div>';
@@ -503,6 +504,13 @@
             if (gemmaModels.length > 0) {
                 html += '<div class="model-category">Gemma Models (Open Source)</div>';
                 gemmaModels.forEach(([key, model]) => {
+                    html += renderModelOption(key, model);
+                });
+            }
+
+            if (groqModels.length > 0) {
+                html += '<div class="model-category">Groq Models (Fast)</div>';
+                groqModels.forEach(([key, model]) => {
                     html += renderModelOption(key, model);
                 });
             }
