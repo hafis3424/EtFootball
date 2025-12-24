@@ -15,7 +15,13 @@ DEV_VIDEO_LIMIT = 20
 
 # Available AI models - organized by provider
 AVAILABLE_MODELS = {
-    # Gemini - primary model (Google)
+    # Gemini - primary models (Google)
+    "gemini-3-flash": {
+        "name": "Gemini 3 Flash",
+        "description": "Latest Gemini 3, most powerful",
+        "category": "gemini",
+        "provider": "google"
+    },
     "gemini-2.5-flash-lite": {
         "name": "Gemini 2.5 Flash Lite",
         "description": "Fast, best quality (default)",
