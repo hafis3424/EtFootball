@@ -20,6 +20,17 @@
             <span class="logo-text">Raf<span class="accent">Localizer</span></span>
         </div>
         <div class="header-actions">
+            <!-- Model Selector -->
+            <div class="model-selector" id="model-selector">
+                <button class="model-btn" id="model-btn">
+                    <span class="status-dot"></span>
+                    <span id="current-model-name">Loading...</span>
+                    <i class="fas fa-chevron-down"></i>
+                </button>
+                <div class="model-dropdown" id="model-dropdown">
+                    <!-- Models will be injected here -->
+                </div>
+            </div>
             <span class="dev-badge"><i class="fas fa-code"></i> DEV MODE</span>
         </div>
     </header>
@@ -305,6 +316,114 @@
 
         // Initialize
         loadVideos();
+
+        // ===== MODEL SELECTOR =====
+        let currentModel = localStorage.getItem('selectedModel') || 'gemini-2.5-flash-lite';
+        let availableModels = {};
+
+        async function loadModels() {
+            try {
+                const res = await fetch('/api/models');
+                const data = await res.json();
+                availableModels = data.models;
+                currentModel = data.current;
+                localStorage.setItem('selectedModel', currentModel);
+                renderModelDropdown();
+                updateModelButton();
+            } catch (err) {
+                console.error('Failed to load models:', err);
+                document.getElementById('current-model-name').textContent = 'Error';
+            }
+        }
+
+        function renderModelDropdown() {
+            const dropdown = document.getElementById('model-dropdown');
+            let html = '';
+
+            // Group by category
+            const geminiModels = Object.entries(availableModels).filter(([k, v]) => v.category === 'gemini');
+            const gemmaModels = Object.entries(availableModels).filter(([k, v]) => v.category === 'gemma');
+
+            if (geminiModels.length > 0) {
+                html += '<div class="model-category">Gemini Models</div>';
+                geminiModels.forEach(([key, model]) => {
+                    html += renderModelOption(key, model);
+                });
+            }
+
+            if (gemmaModels.length > 0) {
+                html += '<div class="model-category">Gemma Models (Open Source)</div>';
+                gemmaModels.forEach(([key, model]) => {
+                    html += renderModelOption(key, model);
+                });
+            }
+
+            dropdown.innerHTML = html;
+
+            // Attach click handlers
+            dropdown.querySelectorAll('.model-option').forEach(opt => {
+                opt.addEventListener('click', () => switchModel(opt.dataset.model));
+            });
+        }
+
+        function renderModelOption(key, model) {
+            const isActive = key === currentModel;
+            return `
+                <div class="model-option ${isActive ? 'active' : ''}" data-model="${key}">
+                    <span class="check-icon"><i class="fas fa-check"></i></span>
+                    <div class="model-info">
+                        <div class="model-name">${model.name}</div>
+                        <div class="model-desc">${model.description}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function updateModelButton() {
+            const model = availableModels[currentModel];
+            const name = model ? model.name : currentModel;
+            document.getElementById('current-model-name').textContent = name;
+        }
+
+        async function switchModel(modelName) {
+            if (modelName === currentModel) return;
+
+            try {
+                const res = await fetch('/api/models/switch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ model: modelName })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    currentModel = modelName;
+                    localStorage.setItem('selectedModel', currentModel);
+                    renderModelDropdown();
+                    updateModelButton();
+                    // Close dropdown
+                    document.getElementById('model-selector').classList.remove('open');
+                }
+            } catch (err) {
+                console.error('Failed to switch model:', err);
+            }
+        }
+
+        // Toggle dropdown
+        document.getElementById('model-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            document.getElementById('model-selector').classList.toggle('open');
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!document.getElementById('model-selector').contains(e.target)) {
+                document.getElementById('model-selector').classList.remove('open');
+            }
+        });
+
+        // Load models on page load
+        loadModels();
     </script>
 </body>
 

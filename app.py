@@ -88,6 +88,39 @@ def get_languages():
     return jsonify({'languages': TranslationService.get_languages()})
 
 
+# ===== MODEL SWITCHING ENDPOINTS =====
+
+@app.route('/api/models', methods=['GET'])
+def get_models():
+    """Get available AI models and current selection."""
+    return jsonify({
+        'models': TranslationService.get_available_models(),
+        'current': TranslationService.get_current_model()
+    })
+
+
+@app.route('/api/models/switch', methods=['POST'])
+def switch_model():
+    """Switch to a different AI model."""
+    data = request.json
+    model_name = data.get('model', '')
+    
+    if not model_name:
+        return jsonify({'success': False, 'error': 'No model specified'}), 400
+    
+    if TranslationService.set_current_model(model_name):
+        return jsonify({
+            'success': True, 
+            'current': model_name,
+            'message': f'Switched to {model_name}'
+        })
+    else:
+        return jsonify({
+            'success': False, 
+            'error': f'Unknown model: {model_name}'
+        }), 400
+
+
 @app.route('/api/translate', methods=['POST'])
 def translate_text():
     data = request.json
@@ -116,6 +149,9 @@ def generate_production():
         import json
         client = genai.Client(api_key=config.GEMINI_API_KEY)
         
+        # Get current model
+        current_model = TranslationService.get_current_model()
+        
         # Single combined prompt for all outputs
         combined_prompt = f"""Generate YouTube production content in Spanish for this football video.
 
@@ -138,7 +174,7 @@ RULES FOR EACH FIELD:
 Return ONLY the JSON, nothing else."""
 
         response = client.models.generate_content(
-            model='gemini-2.5-flash-lite',
+            model=current_model,
             contents=combined_prompt
         )
         
@@ -157,7 +193,8 @@ Return ONLY the JSON, nothing else."""
             'success': True,
             'title': result.get('title', ''),
             'description': result.get('description', ''),
-            'tags': result.get('tags', '')
+            'tags': result.get('tags', ''),
+            'model_used': current_model
         })
         
     except json.JSONDecodeError as e:
@@ -168,4 +205,3 @@ Return ONLY the JSON, nothing else."""
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
-
