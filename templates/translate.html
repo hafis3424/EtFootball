@@ -49,6 +49,16 @@
         </div>
     </div>
 
+    <!-- Floating Navigation Arrows -->
+    <div class="nav-arrows">
+        <button class="nav-arrow nav-arrow-up" id="scroll-top-btn" title="Scroll to Top">
+            <i class="fas fa-chevron-up"></i>
+        </button>
+        <button class="nav-arrow nav-arrow-down" id="scroll-bottom-btn" title="Scroll to Bottom">
+            <i class="fas fa-chevron-down"></i>
+        </button>
+    </div>
+
     <script>
         let transcripts = [];
 
@@ -572,6 +582,44 @@
         });
 
         loadModels();
+
+        // ===== SCROLL NAVIGATION =====
+        const scrollTopBtn = document.getElementById('scroll-top-btn');
+        const scrollBottomBtn = document.getElementById('scroll-bottom-btn');
+
+        scrollTopBtn.addEventListener('click', () => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+
+        scrollBottomBtn.addEventListener('click', () => {
+            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        });
+
+        // Show/hide arrows based on scroll position
+        function updateArrowVisibility() {
+            const scrollTop = window.scrollY;
+            const scrollHeight = document.body.scrollHeight - window.innerHeight;
+
+            // Show up arrow when scrolled down
+            if (scrollTop > 200) {
+                scrollTopBtn.classList.add('visible');
+            } else {
+                scrollTopBtn.classList.remove('visible');
+            }
+
+            // Show down arrow when not at bottom
+            if (scrollTop < scrollHeight - 200) {
+                scrollBottomBtn.classList.add('visible');
+            } else {
+                scrollBottomBtn.classList.remove('visible');
+            }
+        }
+
+        window.addEventListener('scroll', updateArrowVisibility);
+        window.addEventListener('resize', updateArrowVisibility);
+
+        // Initial check
+        setTimeout(updateArrowVisibility, 500);
     </script>
 </body>
 

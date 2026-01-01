@@ -1082,3 +1082,65 @@ body {
     height: auto;
     display: block;
 }
+
+/* ===== Floating Navigation Arrows ===== */
+.nav-arrows {
+    position: fixed;
+    right: 2rem;
+    bottom: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    z-index: 100;
+}
+
+.nav-arrow {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--bg-secondary);
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    opacity: 0;
+    visibility: hidden;
+    transform: scale(0.8);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.nav-arrow.visible {
+    opacity: 1;
+    visibility: visible;
+    transform: scale(1);
+}
+
+.nav-arrow:hover {
+    background: linear-gradient(135deg, var(--accent), #ff6b8a);
+    border-color: var(--accent);
+    color: white;
+    transform: scale(1.1);
+    box-shadow: 0 6px 25px var(--accent-glow);
+}
+
+.nav-arrow:active {
+    transform: scale(0.95);
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+    .nav-arrows {
+        right: 1rem;
+        bottom: 1rem;
+    }
+
+    .nav-arrow {
+        width: 42px;
+        height: 42px;
+        font-size: 0.9rem;
+    }
+}
