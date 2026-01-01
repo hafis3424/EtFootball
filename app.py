@@ -167,7 +167,7 @@ Return EXACTLY this JSON format (no markdown, no code blocks, just raw JSON):
 }}
 
 RULES FOR EACH FIELD:
-- TITLE: Translate to Spanish, add 🚨 at start, ALL UPPERCASE letters
+- TITLE: DIRECTLY TRANSLATE the original title to Spanish word-by-word. Keep the SAME structure and format (including any | separators). Do NOT rewrite or rephrase creatively - just translate literally. Add 🚨 at start and make ALL UPPERCASE. Keep English words like "Football", "Champions League", team names, player names as they are.
 - DESCRIPTION: 5-8 sentences, SEO-optimized, include emojis, hashtags at end (lowercase like #futbol #barcelona), NO bold/markdown formatting
 - TAGS: 10-15 tags separated by commas, all lowercase, include player names, team names, relevant topics
 
