@@ -136,6 +136,7 @@
                 card.innerHTML = `
                     <div class="thumbnail">
                         <img src="${video.thumbnail_url}" alt="${video.title}">
+                        <span class="duration-badge">${formatDuration(video.duration)}</span>
                         <div class="check-overlay">
                             <i class="fas fa-check"></i>
                         </div>
@@ -149,6 +150,24 @@
                 card.addEventListener('click', () => toggleVideo(video, card));
                 videoGrid.appendChild(card);
             });
+        }
+
+        // Format ISO 8601 duration (PT7M11S) to readable format (7:11)
+        function formatDuration(duration) {
+            if (!duration) return '0:00';
+
+            const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+            if (!match) return '0:00';
+
+            const hours = parseInt(match[1]) || 0;
+            const minutes = parseInt(match[2]) || 0;
+            const seconds = parseInt(match[3]) || 0;
+
+            if (hours > 0) {
+                return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            } else {
+                return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            }
         }
 
         // Format view count like YouTube (1K, 1.5M, etc.)
