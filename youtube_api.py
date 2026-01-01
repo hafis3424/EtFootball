@@ -65,13 +65,29 @@ class YouTubeChannel:
             )
             response = request.execute()
             
+            # Get video IDs to fetch statistics
+            video_ids = [item['contentDetails']['videoId'] for item in response.get('items', [])]
+            
+            # Fetch statistics for these videos
+            stats_map = {}
+            if video_ids:
+                stats_request = self.youtube.videos().list(
+                    part="statistics",
+                    id=",".join(video_ids)
+                )
+                stats_response = stats_request.execute()
+                for item in stats_response.get('items', []):
+                    stats_map[item['id']] = item['statistics'].get('viewCount', '0')
+            
             videos = []
             for item in response.get('items', []):
+                video_id = item['contentDetails']['videoId']
                 videos.append({
-                    'video_id': item['contentDetails']['videoId'],
+                    'video_id': video_id,
                     'title': item['snippet']['title'],
                     'thumbnail_url': item['snippet']['thumbnails']['high']['url'],
-                    'published_at': item['snippet']['publishedAt']
+                    'published_at': item['snippet']['publishedAt'],
+                    'view_count': stats_map.get(video_id, '0')
                 })
             
             return videos, response.get('nextPageToken')
@@ -94,13 +110,29 @@ class YouTubeChannel:
             )
             response = request.execute()
             
+            # Get video IDs to fetch statistics
+            video_ids = [item['id']['videoId'] for item in response.get('items', [])]
+            
+            # Fetch statistics for these videos
+            stats_map = {}
+            if video_ids:
+                stats_request = self.youtube.videos().list(
+                    part="statistics",
+                    id=",".join(video_ids)
+                )
+                stats_response = stats_request.execute()
+                for item in stats_response.get('items', []):
+                    stats_map[item['id']] = item['statistics'].get('viewCount', '0')
+            
             videos = []
             for item in response.get('items', []):
+                video_id = item['id']['videoId']
                 videos.append({
-                    'video_id': item['id']['videoId'],
+                    'video_id': video_id,
                     'title': item['snippet']['title'],
                     'thumbnail_url': item['snippet']['thumbnails']['high']['url'],
-                    'published_at': item['snippet']['publishedAt']
+                    'published_at': item['snippet']['publishedAt'],
+                    'view_count': stats_map.get(video_id, '0')
                 })
             
             return videos, response.get('nextPageToken')

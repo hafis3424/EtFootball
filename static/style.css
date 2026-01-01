@@ -393,9 +393,12 @@ body {
     margin-bottom: 0.5rem;
 }
 
-.video-date {
-    font-size: 0.75rem;
-    color: var(--text-muted);
+.video-date,
+.video-meta {
+    font-size: 0.8rem;
+    color: #aaa;
+    display: block;
+    margin-top: 0.25rem;
 }
 
 /* ===== Transcript Panel ===== */

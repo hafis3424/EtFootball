@@ -142,13 +142,54 @@
                     </div>
                     <div class="video-info">
                         <p class="video-title">${video.title}</p>
-                        <span class="video-date">${new Date(video.published_at).toLocaleDateString()}</span>
+                        <span class="video-meta">${formatViewCount(video.view_count)} views • ${formatRelativeTime(video.published_at)}</span>
                     </div>
                 `;
 
                 card.addEventListener('click', () => toggleVideo(video, card));
                 videoGrid.appendChild(card);
             });
+        }
+
+        // Format view count like YouTube (1K, 1.5M, etc.)
+        function formatViewCount(count) {
+            const num = parseInt(count) || 0;
+            if (num >= 1000000) {
+                return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+            } else if (num >= 1000) {
+                return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+            }
+            return num.toString();
+        }
+
+        // Format relative time like YouTube (1 hour ago, 2 days ago, etc.)
+        function formatRelativeTime(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffSec = Math.floor(diffMs / 1000);
+            const diffMin = Math.floor(diffSec / 60);
+            const diffHour = Math.floor(diffMin / 60);
+            const diffDay = Math.floor(diffHour / 24);
+            const diffWeek = Math.floor(diffDay / 7);
+            const diffMonth = Math.floor(diffDay / 30);
+            const diffYear = Math.floor(diffDay / 365);
+
+            if (diffYear >= 1) {
+                return diffYear === 1 ? '1 year ago' : `${diffYear} years ago`;
+            } else if (diffMonth >= 1) {
+                return diffMonth === 1 ? '1 month ago' : `${diffMonth} months ago`;
+            } else if (diffWeek >= 1) {
+                return diffWeek === 1 ? '1 week ago' : `${diffWeek} weeks ago`;
+            } else if (diffDay >= 1) {
+                return diffDay === 1 ? '1 day ago' : `${diffDay} days ago`;
+            } else if (diffHour >= 1) {
+                return diffHour === 1 ? '1 hour ago' : `${diffHour} hours ago`;
+            } else if (diffMin >= 1) {
+                return diffMin === 1 ? '1 minute ago' : `${diffMin} minutes ago`;
+            } else {
+                return 'Just now';
+            }
         }
 
         function toggleVideo(video, card) {
