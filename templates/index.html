@@ -60,6 +60,11 @@
                 <!-- Videos injected here -->
             </div>
 
+            <!-- Load More Button -->
+            <button class="load-more-btn" id="load-more-btn" style="display: none;">
+                <i class="fas fa-plus-circle"></i> Load More Videos
+            </button>
+
             <div class="loading-spinner" id="loading">
                 <div class="spinner"></div>
                 <p>Loading videos...</p>
@@ -94,6 +99,7 @@
     <script>
         // State
         let selectedVideos = new Map(); // Map<id, {title, thumbnail}>
+        let nextPageToken = null; // For pagination
         const videoGrid = document.getElementById('video-grid');
         const loading = document.getElementById('loading');
         const extractBtn = document.getElementById('extract-btn');
@@ -101,28 +107,47 @@
         const transcriptPanel = document.getElementById('transcript-panel');
         const transcriptContent = document.getElementById('transcript-content');
         const searchInput = document.getElementById('search-input');
+        const loadMoreBtn = document.getElementById('load-more-btn');
 
         // Load videos on start
-        async function loadVideos(isSearch = false) {
+        async function loadVideos(isSearch = false, append = false) {
             loading.style.display = 'flex';
-            videoGrid.innerHTML = '';
+            loadMoreBtn.style.display = 'none';
 
-            const endpoint = isSearch
+            if (!append) {
+                videoGrid.innerHTML = '';
+                nextPageToken = null;
+            }
+
+            let endpoint = isSearch
                 ? `/api/channel/search?q=${encodeURIComponent(searchInput.value)}`
                 : '/api/channel/videos';
+
+            // Add page token if loading more
+            if (append && nextPageToken) {
+                endpoint += (endpoint.includes('?') ? '&' : '?') + `pageToken=${nextPageToken}`;
+            }
 
             try {
                 const res = await fetch(endpoint);
                 const data = await res.json();
 
                 if (data.error) {
-                    videoGrid.innerHTML = `<div class="error-state"><i class="fas fa-exclamation-circle"></i><p>${data.error}</p></div>`;
+                    if (!append) {
+                        videoGrid.innerHTML = `<div class="error-state"><i class="fas fa-exclamation-circle"></i><p>${data.error}</p></div>`;
+                    }
                     return;
                 }
 
                 renderVideos(data.videos);
+
+                // Store next page token and show Load More if available
+                nextPageToken = data.nextPageToken;
+                loadMoreBtn.style.display = nextPageToken ? 'flex' : 'none';
             } catch (err) {
-                videoGrid.innerHTML = `<div class="error-state"><i class="fas fa-exclamation-circle"></i><p>Failed to load videos</p></div>`;
+                if (!append) {
+                    videoGrid.innerHTML = `<div class="error-state"><i class="fas fa-exclamation-circle"></i><p>Failed to load videos</p></div>`;
+                }
             } finally {
                 loading.style.display = 'none';
             }
@@ -345,6 +370,9 @@
 
         // Event listeners
         document.getElementById('refresh-btn').addEventListener('click', () => loadVideos());
+
+        // Load More button
+        loadMoreBtn.addEventListener('click', () => loadVideos(searchInput.value.length > 0, true));
 
         document.getElementById('select-all-btn').addEventListener('click', () => {
             const cards = document.querySelectorAll('.video-card');

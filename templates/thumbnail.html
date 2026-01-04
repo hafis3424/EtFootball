@@ -1,0 +1,1218 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RafLocalizer - Thumbnail Editor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="logo">
+            <a href="/"
+                style="display: flex; align-items: center; gap: 0.75rem; text-decoration: none; color: inherit;">
+                <div class="logo-icon">
+                    <i class="fab fa-youtube"></i>
+                </div>
+                <span class="logo-text">Raf<span class="accent">Localizer</span></span>
+            </a>
+        </div>
+        <div class="header-actions">
+            <a href="/translate" class="btn btn-ghost">
+                <i class="fas fa-arrow-left"></i> Back to Translation
+            </a>
+            <span class="phase-badge phase3-badge"><i class="fas fa-image"></i> PHASE 3: THUMBNAIL</span>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="thumbnail-container">
+        <!-- Left Panel: Thumbnail List (from translation) -->
+        <div class="thumb-sidebar" id="thumb-sidebar">
+            <div class="sidebar-header">
+                <h3><i class="fas fa-images"></i> Thumbnails</h3>
+            </div>
+            <div class="thumb-list" id="thumb-list">
+                <!-- Thumbnail items will be injected here -->
+            </div>
+
+            <!-- Manual URL Input -->
+            <div class="manual-url-section">
+                <h4><i class="fas fa-link"></i> Or Enter URL</h4>
+                <div class="url-input-group">
+                    <input type="text" id="manual-url" placeholder="YouTube video or image URL...">
+                    <button class="btn btn-primary btn-sm" id="load-url-btn">
+                        <i class="fas fa-download"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center: Canvas Editor -->
+        <div class="canvas-area">
+            <div class="canvas-wrapper" id="canvas-wrapper">
+                <canvas id="thumbnail-canvas"></canvas>
+                <div class="selection-box" id="selection-box" style="display: none;">
+                    <div class="resize-handle handle-nw" data-handle="nw"></div>
+                    <div class="resize-handle handle-ne" data-handle="ne"></div>
+                    <div class="resize-handle handle-sw" data-handle="sw"></div>
+                    <div class="resize-handle handle-se" data-handle="se"></div>
+                    <div class="resize-handle handle-n" data-handle="n"></div>
+                    <div class="resize-handle handle-s" data-handle="s"></div>
+                    <div class="resize-handle handle-e" data-handle="e"></div>
+                    <div class="resize-handle handle-w" data-handle="w"></div>
+                </div>
+                <div class="canvas-placeholder" id="canvas-placeholder">
+                    <i class="fas fa-image"></i>
+                    <p>Select a thumbnail or enter a URL</p>
+                </div>
+            </div>
+
+            <!-- Canvas Controls / Toolbar -->
+            <div class="canvas-controls">
+                <div class="toolbar-group">
+                    <span class="toolbar-label">Tools:</span>
+                    <button class="btn btn-ghost tool-btn" id="select-tool-btn" title="Select/Move">
+                        <i class="fas fa-mouse-pointer"></i>
+                    </button>
+                    <button class="btn btn-ghost tool-btn" id="rect-tool-btn" title="Rectangle Tool" disabled>
+                        <i class="fas fa-square"></i>
+                    </button>
+                    <button class="btn btn-ghost tool-btn" id="text-tool-btn" title="Text Tool" disabled>
+                        <i class="fas fa-font"></i>
+                    </button>
+                </div>
+                <div class="toolbar-divider"></div>
+                <button class="btn btn-ghost" id="ai-detect-btn" disabled>
+                    <i class="fas fa-magic"></i> AI Detect
+                </button>
+                <button class="btn btn-ghost" id="manual-select-btn" disabled>
+                    <i class="fas fa-vector-square"></i> Select Region
+                </button>
+                <button class="btn btn-ghost" id="show-rect-btn" disabled style="display: none;">
+                    <i class="fas fa-border-style"></i> Show Rectangle
+                </button>
+                <button class="btn btn-ghost" id="reset-btn" disabled>
+                    <i class="fas fa-undo"></i> Reset
+                </button>
+            </div>
+        </div>
+
+        <!-- Right Panel: Text Editor & Controls -->
+        <div class="text-panel">
+            <div class="panel-section">
+                <h3><i class="fas fa-font"></i> Text Content</h3>
+                <textarea id="text-input" placeholder="Enter text to overlay..." rows="4"></textarea>
+                <button class="btn btn-full" id="auto-generate-btn" disabled
+                    style="background: linear-gradient(135deg, #8b5cf6, #ec4899); color: white; margin-bottom: 0.5rem;">
+                    <i class="fas fa-magic"></i> 🚀 One-Click Auto Generate
+                </button>
+                <button class="btn btn-primary btn-full" id="apply-text-btn" disabled>
+                    <i class="fas fa-check"></i> Apply Text (Manual)
+                </button>
+            </div>
+
+            <div class="panel-section">
+                <h3><i class="fas fa-palette"></i> Style</h3>
+
+                <div class="control-group">
+                    <label>Text Color (Main)</label>
+                    <div class="color-picker-row">
+                        <input type="color" id="text-color" value="#FFFF00">
+                        <span class="color-label">#FFFF00</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>
+                        <input type="checkbox" id="use-first-line-color"> First Line Different Color
+                    </label>
+                    <div class="color-picker-row" style="margin-top: 0.5rem;">
+                        <input type="color" id="first-line-color" value="#FF0000">
+                        <span class="color-label">#FF0000</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Background Color</label>
+                    <div class="color-picker-row">
+                        <input type="color" id="bg-color" value="#000000">
+                        <span class="color-label">#000000</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Alignment</label>
+                    <div class="alignment-btns">
+                        <button class="align-btn" data-align="left"><i class="fas fa-align-left"></i></button>
+                        <button class="align-btn active" data-align="center"><i
+                                class="fas fa-align-center"></i></button>
+                        <button class="align-btn" data-align="right"><i class="fas fa-align-right"></i></button>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Font Size: <span id="font-size-value">48</span>px</label>
+                    <input type="range" id="font-size" min="20" max="100" value="48">
+                </div>
+
+                <div class="control-group">
+                    <label>
+                        <input type="checkbox" id="auto-fit" checked> Auto-fit text to region
+                    </label>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <h3><i class="fas fa-download"></i> Export</h3>
+                <div class="export-btns">
+                    <button class="btn btn-primary btn-full" id="download-btn" disabled>
+                        <i class="fas fa-download"></i> Download PNG
+                    </button>
+                    <button class="btn btn-ghost btn-full" id="copy-btn" disabled>
+                        <i class="far fa-copy"></i> Copy to Clipboard
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let thumbnails = [];
+        let currentImage = null;
+        let originalImage = null;
+        let selectionMode = false;
+        let selectedRegion = null;
+        let textSettings = {
+            color: '#FFFF00',
+            firstLineColor: '#FF0000',
+            useFirstLineColor: false,
+            bgColor: '#000000',
+            align: 'center',
+            fontSize: 48,
+            autoFit: true
+        };
+
+        // Current tool: 'select', 'rect', 'text'
+        let currentTool = 'select';
+        // Store drawn elements as objects (non-destructive editing)
+        let drawnElements = [];
+        // Currently selected element index (-1 = none)
+        let selectedElementIndex = -1;
+
+        const canvas = document.getElementById('thumbnail-canvas');
+        const ctx = canvas.getContext('2d');
+        const canvasWrapper = document.getElementById('canvas-wrapper');
+        const selectionBox = document.getElementById('selection-box');
+        const placeholder = document.getElementById('canvas-placeholder');
+
+        // Initialize - Load thumbnails from sessionStorage
+        function init() {
+            const storedData = sessionStorage.getItem('thumbnailData');
+            if (storedData) {
+                thumbnails = JSON.parse(storedData);
+                renderThumbnailList();
+            }
+
+            setupEventListeners();
+        }
+
+        function renderThumbnailList() {
+            const list = document.getElementById('thumb-list');
+            list.innerHTML = '';
+
+            if (thumbnails.length === 0) {
+                list.innerHTML = '<p class="no-thumbs">No thumbnails from translation. Use manual URL input.</p>';
+                return;
+            }
+
+            thumbnails.forEach((thumb, index) => {
+                const item = document.createElement('div');
+                item.className = 'thumb-item';
+                item.innerHTML = `
+                    <img src="${thumb.thumbnail_url}" alt="${thumb.title}">
+                    <div class="thumb-item-info">
+                        <p class="thumb-title">${thumb.title}</p>
+                        <p class="thumb-text-preview">${thumb.production_title || 'No title'}</p>
+                    </div>
+                `;
+                item.addEventListener('click', () => loadThumbnail(thumb));
+                list.appendChild(item);
+            });
+        }
+
+        function loadThumbnail(thumb) {
+            loadImageFromUrl(thumb.thumbnail_url);
+            document.getElementById('text-input').value = thumb.production_title || '';
+        }
+
+        function loadImageFromUrl(url) {
+            placeholder.style.display = 'flex';
+            placeholder.innerHTML = '<i class="fas fa-spinner fa-spin"></i><p>Loading...</p>';
+
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+
+            img.onload = () => {
+                originalImage = img;
+                currentImage = img;
+
+                // Set canvas size to match image
+                canvas.width = img.width;
+                canvas.height = img.height;
+
+                // Draw image
+                ctx.drawImage(img, 0, 0);
+
+                placeholder.style.display = 'none';
+                enableControls();
+            };
+
+            img.onerror = () => {
+                // Try fetching through backend proxy
+                fetchThumbnailFromBackend(url);
+            };
+
+            img.src = url;
+        }
+
+        async function fetchThumbnailFromBackend(url) {
+            try {
+                const res = await fetch('/api/thumbnail/fetch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: url })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    const img = new Image();
+                    img.onload = () => {
+                        originalImage = img;
+                        currentImage = img;
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        ctx.drawImage(img, 0, 0);
+                        placeholder.style.display = 'none';
+                        enableControls();
+                    };
+                    img.src = 'data:image/jpeg;base64,' + data.image;
+                } else {
+                    showError(data.error || 'Failed to load image');
+                }
+            } catch (err) {
+                showError('Failed to fetch thumbnail');
+            }
+        }
+
+        function showError(msg) {
+            placeholder.innerHTML = `<i class="fas fa-exclamation-circle"></i><p>${msg}</p>`;
+        }
+
+        function enableControls() {
+            document.getElementById('ai-detect-btn').disabled = false;
+            document.getElementById('manual-select-btn').disabled = false;
+            document.getElementById('reset-btn').disabled = false;
+            document.getElementById('apply-text-btn').disabled = false;
+            document.getElementById('auto-generate-btn').disabled = false;
+            document.getElementById('download-btn').disabled = false;
+            document.getElementById('copy-btn').disabled = false;
+            // Enable tool buttons
+            document.getElementById('rect-tool-btn').disabled = false;
+            document.getElementById('text-tool-btn').disabled = false;
+        }
+
+        function setupEventListeners() {
+            // Manual URL load
+            document.getElementById('load-url-btn').addEventListener('click', () => {
+                const url = document.getElementById('manual-url').value.trim();
+                if (url) {
+                    // Convert YouTube video URL to thumbnail URL if needed
+                    const thumbUrl = convertToThumbnailUrl(url);
+                    loadImageFromUrl(thumbUrl);
+                }
+            });
+
+            // Manual selection mode
+            document.getElementById('manual-select-btn').addEventListener('click', () => {
+                selectionMode = true;
+                canvasWrapper.style.cursor = 'crosshair';
+            });
+
+            // AI detection
+            document.getElementById('ai-detect-btn').addEventListener('click', detectTextWithAI);
+
+            // Reset
+            document.getElementById('reset-btn').addEventListener('click', () => {
+                if (originalImage) {
+                    ctx.drawImage(originalImage, 0, 0);
+                    selectedRegion = null;
+                    selectionBox.style.display = 'none';
+                    document.getElementById('show-rect-btn').style.display = 'none';
+                }
+            });
+
+            // Show/Hide Rectangle for adjustments
+            document.getElementById('show-rect-btn').addEventListener('click', () => {
+                if (selectionBox.style.display === 'none') {
+                    updateSelectionBoxPosition();
+                    document.getElementById('show-rect-btn').innerHTML = '<i class="fas fa-eye-slash"></i> Hide Rectangle';
+                } else {
+                    selectionBox.style.display = 'none';
+                    document.getElementById('show-rect-btn').innerHTML = '<i class="fas fa-border-style"></i> Show Rectangle';
+                }
+            });
+
+            // Apply text
+            document.getElementById('apply-text-btn').addEventListener('click', applyText);
+
+            // Auto-generate (one-click)
+            document.getElementById('auto-generate-btn').addEventListener('click', autoGenerate);
+
+            // Tool selection handlers
+            function setActiveTool(tool) {
+                currentTool = tool;
+                // Update button states
+                document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
+                document.getElementById(tool + '-tool-btn').classList.add('active');
+                // Update cursor
+                canvasWrapper.classList.remove('text-mode', 'rect-mode');
+                if (tool === 'text') canvasWrapper.classList.add('text-mode');
+                if (tool === 'rect') canvasWrapper.classList.add('rect-mode');
+                // Disable selection mode if changing tool
+                selectionMode = false;
+            }
+
+            document.getElementById('select-tool-btn').addEventListener('click', () => setActiveTool('select'));
+            document.getElementById('rect-tool-btn').addEventListener('click', () => setActiveTool('rect'));
+            document.getElementById('text-tool-btn').addEventListener('click', () => setActiveTool('text'));
+
+            // Initialize with select tool active
+            setActiveTool('select');
+
+            // Color pickers - with live preview
+            document.getElementById('text-color').addEventListener('input', (e) => {
+                textSettings.color = e.target.value;
+                e.target.nextElementSibling.textContent = e.target.value.toUpperCase();
+                updatePreview();
+            });
+
+            document.getElementById('bg-color').addEventListener('input', (e) => {
+                textSettings.bgColor = e.target.value;
+                e.target.nextElementSibling.textContent = e.target.value.toUpperCase();
+                updatePreview();
+            });
+
+            // First line color controls
+            document.getElementById('use-first-line-color').addEventListener('change', (e) => {
+                textSettings.useFirstLineColor = e.target.checked;
+                updatePreview();
+            });
+
+            document.getElementById('first-line-color').addEventListener('input', (e) => {
+                textSettings.firstLineColor = e.target.value;
+                e.target.nextElementSibling.textContent = e.target.value.toUpperCase();
+                updatePreview();
+            });
+
+            // Alignment buttons - with live preview
+            document.querySelectorAll('.align-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.align-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    textSettings.align = btn.dataset.align;
+                    updatePreview();
+                });
+            });
+
+            // Font size slider - with live preview
+            document.getElementById('font-size').addEventListener('input', (e) => {
+                textSettings.fontSize = parseInt(e.target.value);
+                document.getElementById('font-size-value').textContent = e.target.value;
+                updatePreview();
+            });
+
+            // Auto-fit checkbox - with live preview
+            document.getElementById('auto-fit').addEventListener('change', (e) => {
+                textSettings.autoFit = e.target.checked;
+                updatePreview();
+            });
+
+            // Text input - with live preview (debounced)
+            let textInputTimeout;
+            document.getElementById('text-input').addEventListener('input', () => {
+                clearTimeout(textInputTimeout);
+                textInputTimeout = setTimeout(updatePreview, 300);
+            });
+
+            // Canvas selection and tool interactions
+            let startX, startY, isDrawing = false;
+            let rectDrawStart = null;
+            let elementDragStart = null;
+            let isDraggingElement = false;
+            let isResizingElement = false;
+            let resizeHandleType = null; // 'nw', 'ne', 'sw', 'se'
+            let resizeStart = null;
+
+            // Double-click to edit text
+            canvasWrapper.addEventListener('dblclick', (e) => {
+                if (!currentImage) return;
+
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                const clickX = (e.clientX - rect.left) * scaleX;
+                const clickY = (e.clientY - rect.top) * scaleY;
+
+                const hitIndex = hitTestElement(clickX, clickY);
+                if (hitIndex >= 0 && drawnElements[hitIndex].type === 'text') {
+                    const elem = drawnElements[hitIndex];
+
+                    // Prompt for new text
+                    const newText = prompt('Edit text:', elem.text);
+                    if (newText !== null) {
+                        elem.text = newText.toUpperCase();
+                    }
+
+                    // Option to change color
+                    const newColor = prompt('Text color (hex, e.g. #FFFF00):', elem.color);
+                    if (newColor && /^#[0-9A-Fa-f]{6}$/.test(newColor)) {
+                        elem.color = newColor.toUpperCase();
+                    }
+
+                    selectedElementIndex = hitIndex;
+                    renderCanvas();
+                }
+            });
+
+            canvasWrapper.addEventListener('mousedown', (e) => {
+                if (!currentImage) return;
+
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                const clickX = (e.clientX - rect.left) * scaleX;
+                const clickY = (e.clientY - rect.top) * scaleY;
+
+                if (currentTool === 'select') {
+                    // First check if clicking on a resize handle of selected element
+                    if (selectedElementIndex >= 0) {
+                        const handle = hitTestResizeHandle(clickX, clickY);
+                        if (handle) {
+                            isResizingElement = true;
+                            resizeHandleType = handle;
+                            const elem = drawnElements[selectedElementIndex];
+                            resizeStart = {
+                                x: clickX, y: clickY,
+                                elemX: elem.x, elemY: elem.y,
+                                elemW: elem.width || 0, elemH: elem.height || elem.fontSize || 0
+                            };
+                            return;
+                        }
+                    }
+
+                    // Select tool - check if clicking on an element
+                    const hitIndex = hitTestElement(clickX, clickY);
+                    if (hitIndex >= 0) {
+                        selectedElementIndex = hitIndex;
+                        const elem = drawnElements[hitIndex];
+                        elementDragStart = { x: clickX, y: clickY, elemX: elem.x, elemY: elem.y };
+                        isDraggingElement = true;
+                        renderCanvas();
+                    } else {
+                        // Deselect if clicking empty area
+                        selectedElementIndex = -1;
+                        renderCanvas();
+                    }
+                } else if (currentTool === 'rect') {
+                    // Start drawing rectangle
+                    rectDrawStart = { x: clickX, y: clickY };
+                    isDrawing = true;
+                } else if (currentTool === 'text') {
+                    // Add text at click position
+                    const text = prompt('Enter text:');
+                    if (text) {
+                        drawnElements.push({
+                            type: 'text',
+                            text: text.toUpperCase(),
+                            x: clickX,
+                            y: clickY,
+                            color: textSettings.color,
+                            fontSize: textSettings.fontSize
+                        });
+                        selectedElementIndex = drawnElements.length - 1;
+                        renderCanvas();
+                    }
+                } else if (selectionMode) {
+                    // Region selection mode
+                    startX = clickX;
+                    startY = clickY;
+                    isDrawing = true;
+                    selectionBox.style.display = 'block';
+                }
+            });
+
+            canvasWrapper.addEventListener('mousemove', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                const currentX = (e.clientX - rect.left) * scaleX;
+                const currentY = (e.clientY - rect.top) * scaleY;
+
+                // Resizing an element
+                if (isResizingElement && selectedElementIndex >= 0 && resizeStart) {
+                    const elem = drawnElements[selectedElementIndex];
+                    const deltaX = currentX - resizeStart.x;
+                    const deltaY = currentY - resizeStart.y;
+
+                    if (elem.type === 'rect') {
+                        // Handle different corners
+                        if (resizeHandleType === 'se') {
+                            elem.width = Math.max(20, resizeStart.elemW + deltaX);
+                            elem.height = Math.max(20, resizeStart.elemH + deltaY);
+                        } else if (resizeHandleType === 'sw') {
+                            elem.x = resizeStart.elemX + deltaX;
+                            elem.width = Math.max(20, resizeStart.elemW - deltaX);
+                            elem.height = Math.max(20, resizeStart.elemH + deltaY);
+                        } else if (resizeHandleType === 'ne') {
+                            elem.y = resizeStart.elemY + deltaY;
+                            elem.width = Math.max(20, resizeStart.elemW + deltaX);
+                            elem.height = Math.max(20, resizeStart.elemH - deltaY);
+                        } else if (resizeHandleType === 'nw') {
+                            elem.x = resizeStart.elemX + deltaX;
+                            elem.y = resizeStart.elemY + deltaY;
+                            elem.width = Math.max(20, resizeStart.elemW - deltaX);
+                            elem.height = Math.max(20, resizeStart.elemH - deltaY);
+                        }
+                    } else if (elem.type === 'text') {
+                        // For text, resize means change font size
+                        const newSize = resizeStart.elemH + deltaY;
+                        elem.fontSize = Math.max(12, Math.min(200, newSize));
+                    }
+                    renderCanvas();
+                    return;
+                }
+
+                // Dragging an element
+                if (isDraggingElement && selectedElementIndex >= 0 && elementDragStart) {
+                    const deltaX = currentX - elementDragStart.x;
+                    const deltaY = currentY - elementDragStart.y;
+                    drawnElements[selectedElementIndex].x = elementDragStart.elemX + deltaX;
+                    drawnElements[selectedElementIndex].y = elementDragStart.elemY + deltaY;
+                    renderCanvas();
+                    return;
+                }
+
+                if (!isDrawing) return;
+
+                const width = currentX - startX;
+                const height = currentY - startY;
+
+                // Update selection box visual
+                const displayScaleX = rect.width / canvas.width;
+                const displayScaleY = rect.height / canvas.height;
+
+                selectionBox.style.left = (Math.min(startX, currentX) * displayScaleX) + 'px';
+                selectionBox.style.top = (Math.min(startY, currentY) * displayScaleY) + 'px';
+                selectionBox.style.width = (Math.abs(width) * displayScaleX) + 'px';
+                selectionBox.style.height = (Math.abs(height) * displayScaleY) + 'px';
+            });
+
+            canvasWrapper.addEventListener('mouseup', (e) => {
+                // Stop resizing element
+                if (isResizingElement) {
+                    isResizingElement = false;
+                    resizeHandleType = null;
+                    resizeStart = null;
+                    return;
+                }
+
+                // Stop dragging element
+                if (isDraggingElement) {
+                    isDraggingElement = false;
+                    elementDragStart = null;
+                    return;
+                }
+
+                if (!isDrawing) return;
+                isDrawing = false;
+
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                const endX = (e.clientX - rect.left) * scaleX;
+                const endY = (e.clientY - rect.top) * scaleY;
+
+                if (currentTool === 'rect' && rectDrawStart) {
+                    // Add rectangle to elements array (non-destructive)
+                    const rectX = Math.min(rectDrawStart.x, endX);
+                    const rectY = Math.min(rectDrawStart.y, endY);
+                    const rectW = Math.abs(endX - rectDrawStart.x);
+                    const rectH = Math.abs(endY - rectDrawStart.y);
+
+                    if (rectW > 5 && rectH > 5) {
+                        drawnElements.push({
+                            type: 'rect',
+                            x: rectX,
+                            y: rectY,
+                            width: rectW,
+                            height: rectH,
+                            color: textSettings.bgColor
+                        });
+                        selectedElementIndex = drawnElements.length - 1;
+                        renderCanvas();
+                    }
+                    rectDrawStart = null;
+                } else if (selectionMode) {
+                    // Selection mode
+                    selectionMode = false;
+                    canvasWrapper.style.cursor = 'default';
+
+                    selectedRegion = {
+                        x: Math.min(startX, endX),
+                        y: Math.min(startY, endY),
+                        width: Math.abs(endX - startX),
+                        height: Math.abs(endY - startY)
+                    };
+
+                    updateSelectionBoxPosition();
+                }
+            });
+
+            // Selection box drag and resize
+            let isDragging = false;
+            let isResizing = false;
+            let resizeHandle = null;
+            let dragStartX, dragStartY;
+            let originalRegion = null;
+
+            selectionBox.addEventListener('mousedown', (e) => {
+                if (e.target.classList.contains('resize-handle')) {
+                    isResizing = true;
+                    resizeHandle = e.target.dataset.handle;
+                } else {
+                    isDragging = true;
+                }
+
+                const rect = canvas.getBoundingClientRect();
+                dragStartX = e.clientX;
+                dragStartY = e.clientY;
+                originalRegion = { ...selectedRegion };
+                e.stopPropagation();
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging && !isResizing) return;
+                if (!selectedRegion) return;
+
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                const deltaX = (e.clientX - dragStartX) * scaleX;
+                const deltaY = (e.clientY - dragStartY) * scaleY;
+
+                if (isDragging) {
+                    selectedRegion.x = originalRegion.x + deltaX;
+                    selectedRegion.y = originalRegion.y + deltaY;
+                } else if (isResizing) {
+                    switch (resizeHandle) {
+                        case 'se':
+                            selectedRegion.width = originalRegion.width + deltaX;
+                            selectedRegion.height = originalRegion.height + deltaY;
+                            break;
+                        case 'sw':
+                            selectedRegion.x = originalRegion.x + deltaX;
+                            selectedRegion.width = originalRegion.width - deltaX;
+                            selectedRegion.height = originalRegion.height + deltaY;
+                            break;
+                        case 'ne':
+                            selectedRegion.y = originalRegion.y + deltaY;
+                            selectedRegion.width = originalRegion.width + deltaX;
+                            selectedRegion.height = originalRegion.height - deltaY;
+                            break;
+                        case 'nw':
+                            selectedRegion.x = originalRegion.x + deltaX;
+                            selectedRegion.y = originalRegion.y + deltaY;
+                            selectedRegion.width = originalRegion.width - deltaX;
+                            selectedRegion.height = originalRegion.height - deltaY;
+                            break;
+                        case 'n':
+                            selectedRegion.y = originalRegion.y + deltaY;
+                            selectedRegion.height = originalRegion.height - deltaY;
+                            break;
+                        case 's':
+                            selectedRegion.height = originalRegion.height + deltaY;
+                            break;
+                        case 'e':
+                            selectedRegion.width = originalRegion.width + deltaX;
+                            break;
+                        case 'w':
+                            selectedRegion.x = originalRegion.x + deltaX;
+                            selectedRegion.width = originalRegion.width - deltaX;
+                            break;
+                    }
+                }
+
+                // Ensure minimum size
+                selectedRegion.width = Math.max(50, selectedRegion.width);
+                selectedRegion.height = Math.max(50, selectedRegion.height);
+
+                updateSelectionBoxPosition();
+
+                // Live update text when dragging/resizing
+                updatePreview();
+            });
+
+            document.addEventListener('mouseup', () => {
+                isDragging = false;
+                isResizing = false;
+                resizeHandle = null;
+            });
+
+            // Download button
+            document.getElementById('download-btn').addEventListener('click', () => {
+                const link = document.createElement('a');
+                link.download = 'thumbnail.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            });
+
+            // Copy button
+            document.getElementById('copy-btn').addEventListener('click', async () => {
+                try {
+                    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+                    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+
+                    const btn = document.getElementById('copy-btn');
+                    btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                    setTimeout(() => {
+                        btn.innerHTML = '<i class="far fa-copy"></i> Copy to Clipboard';
+                    }, 2000);
+                } catch (err) {
+                    alert('Failed to copy to clipboard');
+                }
+            });
+        }
+
+        function updateSelectionBoxPosition() {
+            if (!selectedRegion) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const displayScaleX = rect.width / canvas.width;
+            const displayScaleY = rect.height / canvas.height;
+
+            selectionBox.style.display = 'block';
+            selectionBox.style.left = (selectedRegion.x * displayScaleX) + 'px';
+            selectionBox.style.top = (selectedRegion.y * displayScaleY) + 'px';
+            selectionBox.style.width = (selectedRegion.width * displayScaleX) + 'px';
+            selectionBox.style.height = (selectedRegion.height * displayScaleY) + 'px';
+        }
+
+        // Render canvas with all elements (non-destructive)
+        function renderCanvas() {
+            if (!originalImage) return;
+
+            // Draw original image
+            ctx.drawImage(originalImage, 0, 0);
+
+            // Draw all elements
+            drawnElements.forEach((elem, idx) => {
+                if (elem.type === 'rect') {
+                    ctx.fillStyle = elem.color;
+                    ctx.fillRect(elem.x, elem.y, elem.width, elem.height);
+                } else if (elem.type === 'text') {
+                    ctx.fillStyle = elem.color;
+                    ctx.font = `bold ${elem.fontSize}px Arial`;
+                    ctx.textBaseline = 'top';
+                    ctx.fillText(elem.text, elem.x, elem.y);
+                }
+
+                // Draw selection handles if this element is selected
+                if (idx === selectedElementIndex) {
+                    drawSelectionHandles(elem);
+                }
+            });
+        }
+
+        // Draw selection handles around an element
+        function drawSelectionHandles(elem) {
+            let x, y, w, h;
+            if (elem.type === 'rect') {
+                x = elem.x; y = elem.y; w = elem.width; h = elem.height;
+            } else if (elem.type === 'text') {
+                ctx.font = `bold ${elem.fontSize}px Arial`;
+                const metrics = ctx.measureText(elem.text);
+                x = elem.x; y = elem.y;
+                w = metrics.width; h = elem.fontSize;
+            }
+
+            // Draw dashed border
+            ctx.strokeStyle = '#00BFFF';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 3]);
+            ctx.strokeRect(x - 2, y - 2, w + 4, h + 4);
+            ctx.setLineDash([]);
+
+            // Draw corner handles
+            const handleSize = 8;
+            ctx.fillStyle = '#00BFFF';
+            [[x - 2, y - 2], [x + w - 2, y - 2], [x - 2, y + h - 2], [x + w - 2, y + h - 2]].forEach(([hx, hy]) => {
+                ctx.fillRect(hx - handleSize / 2, hy - handleSize / 2, handleSize, handleSize);
+            });
+        }
+
+        // Hit test - find which element is at the given canvas coordinates
+        function hitTestElement(clickX, clickY) {
+            // Check in reverse order (top elements first)
+            for (let i = drawnElements.length - 1; i >= 0; i--) {
+                const elem = drawnElements[i];
+                let x, y, w, h;
+                if (elem.type === 'rect') {
+                    x = elem.x; y = elem.y; w = elem.width; h = elem.height;
+                } else if (elem.type === 'text') {
+                    ctx.font = `bold ${elem.fontSize}px Arial`;
+                    const metrics = ctx.measureText(elem.text);
+                    x = elem.x; y = elem.y;
+                    w = metrics.width; h = elem.fontSize;
+                }
+                if (clickX >= x && clickX <= x + w && clickY >= y && clickY <= y + h) {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
+        // Hit test for resize handles of selected element
+        function hitTestResizeHandle(clickX, clickY) {
+            if (selectedElementIndex < 0) return null;
+
+            const elem = drawnElements[selectedElementIndex];
+            let x, y, w, h;
+            if (elem.type === 'rect') {
+                x = elem.x; y = elem.y; w = elem.width; h = elem.height;
+            } else if (elem.type === 'text') {
+                ctx.font = `bold ${elem.fontSize}px Arial`;
+                const metrics = ctx.measureText(elem.text);
+                x = elem.x; y = elem.y;
+                w = metrics.width; h = elem.fontSize;
+            }
+
+            const handleSize = 12; // Slightly larger for easier clicking
+            const handles = {
+                'nw': [x - 2, y - 2],
+                'ne': [x + w - 2, y - 2],
+                'sw': [x - 2, y + h - 2],
+                'se': [x + w - 2, y + h - 2]
+            };
+
+            for (const [name, [hx, hy]] of Object.entries(handles)) {
+                if (clickX >= hx - handleSize / 2 && clickX <= hx + handleSize / 2 &&
+                    clickY >= hy - handleSize / 2 && clickY <= hy + handleSize / 2) {
+                    return name;
+                }
+            }
+            return null;
+        }
+
+        function convertToThumbnailUrl(url) {
+            // Convert YouTube video URL to thumbnail URL
+            const videoIdMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\s]+)/);
+            if (videoIdMatch) {
+                return `https://img.youtube.com/vi/${videoIdMatch[1]}/maxresdefault.jpg`;
+            }
+            return url; // Return as-is if not a YouTube URL
+        }
+
+        async function detectTextWithAI() {
+            if (!currentImage) return;
+
+            const btn = document.getElementById('ai-detect-btn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Detecting...';
+
+            try {
+                const imageData = canvas.toDataURL('image/jpeg', 0.8);
+                const res = await fetch('/api/thumbnail/detect-text', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: imageData })
+                });
+                const data = await res.json();
+
+                if (data.success && data.regions && data.regions.length > 0) {
+                    selectedRegion = data.regions[0]; // Use first detected region
+                    updateSelectionBoxPosition();
+                } else {
+                    alert('No text regions detected. Try manual selection.');
+                }
+            } catch (err) {
+                alert('AI detection failed. Try manual selection.');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-magic"></i> AI Detect Text';
+            }
+        }
+
+        // One-click auto generate - detects region, colors, and applies text
+        async function autoGenerate() {
+            if (!currentImage) return;
+
+            const text = document.getElementById('text-input').value.trim();
+            if (!text) {
+                alert('Please enter text first');
+                return;
+            }
+
+            const btn = document.getElementById('auto-generate-btn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+
+            try {
+                const imageData = canvas.toDataURL('image/jpeg', 0.8);
+                const res = await fetch('/api/thumbnail/auto-analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: imageData })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    // Apply detected region
+                    if (data.region) {
+                        selectedRegion = data.region;
+                    }
+
+                    // Apply detected colors
+                    if (data.colors) {
+                        if (data.colors.background) {
+                            textSettings.bgColor = data.colors.background;
+                            document.getElementById('bg-color').value = data.colors.background;
+                        }
+                        if (data.colors.mainText) {
+                            textSettings.color = data.colors.mainText;
+                            document.getElementById('text-color').value = data.colors.mainText;
+                        }
+                        if (data.colors.firstLineText && data.colors.firstLineText !== data.colors.mainText) {
+                            textSettings.useFirstLineColor = true;
+                            textSettings.firstLineColor = data.colors.firstLineText;
+                            document.getElementById('use-first-line-color').checked = true;
+                            document.getElementById('first-line-color').value = data.colors.firstLineText;
+                        }
+                    }
+
+                    // Apply text
+                    applyText();
+
+                    // Show success
+                    btn.innerHTML = '<i class="fas fa-check"></i> Done!';
+                    setTimeout(() => {
+                        btn.innerHTML = '<i class="fas fa-magic"></i> 🚀 One-Click Auto Generate';
+                        btn.disabled = false;
+                    }, 1500);
+                } else {
+                    alert('Auto-generate failed: ' + (data.error || 'Unknown error'));
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-magic"></i> 🚀 One-Click Auto Generate';
+                }
+            } catch (err) {
+                alert('Auto-generate failed. Try manual approach.');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-magic"></i> 🚀 One-Click Auto Generate';
+            }
+        }
+
+        // Live preview - update canvas without hiding selection
+        function updatePreview() {
+            if (!selectedRegion || !originalImage) return;
+
+            const text = document.getElementById('text-input').value.toUpperCase();
+            if (!text.trim()) {
+                // Just redraw original image if no text
+                ctx.drawImage(originalImage, 0, 0);
+                return;
+            }
+
+            // Redraw original image
+            ctx.drawImage(originalImage, 0, 0);
+
+            // Fill selected region with background color
+            ctx.fillStyle = textSettings.bgColor;
+            ctx.fillRect(selectedRegion.x, selectedRegion.y, selectedRegion.width, selectedRegion.height);
+
+            // Calculate font size
+            let fontSize = textSettings.fontSize;
+            if (textSettings.autoFit) {
+                fontSize = calculateFitFontSize(text, selectedRegion.width - 20, selectedRegion.height - 20);
+            }
+
+            // Setup text style
+            ctx.fillStyle = textSettings.color;
+            ctx.font = `bold ${fontSize}px Arial`;
+            ctx.textBaseline = 'top';
+
+            // Text alignment
+            let textX;
+            if (textSettings.align === 'left') {
+                ctx.textAlign = 'left';
+                textX = selectedRegion.x + 10;
+            } else if (textSettings.align === 'right') {
+                ctx.textAlign = 'right';
+                textX = selectedRegion.x + selectedRegion.width - 10;
+            } else {
+                ctx.textAlign = 'center';
+                textX = selectedRegion.x + selectedRegion.width / 2;
+            }
+
+            // Wrap and draw text
+            const lines = wrapText(text, selectedRegion.width - 20, fontSize);
+            const lineHeight = fontSize * 1.1;
+            const totalHeight = lines.length * lineHeight;
+            let startY = selectedRegion.y + (selectedRegion.height - totalHeight) / 2;
+
+            // Clip text to selection region
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(selectedRegion.x, selectedRegion.y, selectedRegion.width, selectedRegion.height);
+            ctx.clip();
+
+            lines.forEach((line, i) => {
+                // Use first line color if enabled and this is the first line
+                if (i === 0 && textSettings.useFirstLineColor) {
+                    ctx.fillStyle = textSettings.firstLineColor;
+                } else {
+                    ctx.fillStyle = textSettings.color;
+                }
+                ctx.fillText(line, textX, startY + i * lineHeight);
+            });
+
+            ctx.restore();
+        }
+
+        function applyText() {
+            if (!selectedRegion || !originalImage) {
+                alert('Please select a region first (AI Detect or Manual Select)');
+                return;
+            }
+
+            const text = document.getElementById('text-input').value.toUpperCase();
+            if (!text.trim()) {
+                alert('Please enter text');
+                return;
+            }
+
+            // Redraw original image
+            ctx.drawImage(originalImage, 0, 0);
+
+            // Fill selected region with background color
+            ctx.fillStyle = textSettings.bgColor;
+            ctx.fillRect(selectedRegion.x, selectedRegion.y, selectedRegion.width, selectedRegion.height);
+
+            // Calculate font size
+            let fontSize = textSettings.fontSize;
+            if (textSettings.autoFit) {
+                fontSize = calculateFitFontSize(text, selectedRegion.width - 20, selectedRegion.height - 20);
+            }
+
+            // Setup text style
+            ctx.fillStyle = textSettings.color;
+            ctx.font = `bold ${fontSize}px Arial`;
+            ctx.textBaseline = 'top';
+
+            // Text alignment
+            let textX;
+            if (textSettings.align === 'left') {
+                ctx.textAlign = 'left';
+                textX = selectedRegion.x + 10;
+            } else if (textSettings.align === 'right') {
+                ctx.textAlign = 'right';
+                textX = selectedRegion.x + selectedRegion.width - 10;
+            } else {
+                ctx.textAlign = 'center';
+                textX = selectedRegion.x + selectedRegion.width / 2;
+            }
+
+            // Wrap and draw text
+            const lines = wrapText(text, selectedRegion.width - 20, fontSize);
+            const lineHeight = fontSize * 1.1;
+            const totalHeight = lines.length * lineHeight;
+            let startY = selectedRegion.y + (selectedRegion.height - totalHeight) / 2;
+
+            // Clip text to selection region
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(selectedRegion.x, selectedRegion.y, selectedRegion.width, selectedRegion.height);
+            ctx.clip();
+
+            lines.forEach((line, i) => {
+                // Use first line color if enabled and this is the first line
+                if (i === 0 && textSettings.useFirstLineColor) {
+                    ctx.fillStyle = textSettings.firstLineColor;
+                } else {
+                    ctx.fillStyle = textSettings.color;
+                }
+                ctx.fillText(line, textX, startY + i * lineHeight);
+            });
+
+            ctx.restore();
+
+            // Hide selection box but show the "Show Rectangle" button for adjustments
+            selectionBox.style.display = 'none';
+            document.getElementById('show-rect-btn').style.display = 'inline-flex';
+            document.getElementById('show-rect-btn').disabled = false;
+            document.getElementById('show-rect-btn').innerHTML = '<i class="fas fa-border-style"></i> Show Rectangle';
+        }
+
+        function calculateFitFontSize(text, maxWidth, maxHeight) {
+            let fontSize = 100;
+            const minFontSize = 20;
+
+            while (fontSize > minFontSize) {
+                ctx.font = `bold ${fontSize}px Arial`;
+                const lines = wrapText(text, maxWidth, fontSize);
+                const totalHeight = lines.length * fontSize * 1.2;
+
+                if (totalHeight <= maxHeight) {
+                    return fontSize;
+                }
+                fontSize -= 2;
+            }
+            return minFontSize;
+        }
+
+        function wrapText(text, maxWidth, fontSize) {
+            ctx.font = `bold ${fontSize}px Arial`;
+            const words = text.split(' ');
+            const lines = [];
+            let currentLine = '';
+
+            words.forEach(word => {
+                const testLine = currentLine ? currentLine + ' ' + word : word;
+                const metrics = ctx.measureText(testLine);
+
+                if (metrics.width > maxWidth && currentLine) {
+                    lines.push(currentLine);
+                    currentLine = word;
+                } else {
+                    currentLine = testLine;
+                }
+            });
+
+            if (currentLine) {
+                lines.push(currentLine);
+            }
+
+            return lines;
+        }
+
+        // Initialize
+        init();
+    </script>
+</body>
+
+</html>

@@ -11,7 +11,7 @@ RAF_TALKS_CHANNEL_ID = ""  # Will be populated at runtime
 
 # Development mode - limit videos shown
 DEV_MODE = True
-DEV_VIDEO_LIMIT = 50
+DEV_VIDEO_LIMIT = 100
 
 # Available AI models - organized by provider
 AVAILABLE_MODELS = {

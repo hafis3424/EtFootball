@@ -219,6 +219,11 @@
                                      alt="Video Thumbnail"
                                      onerror="this.src='https://img.youtube.com/vi/${t.video_id}/hqdefault.jpg'">
                             </div>
+                            <button class="btn btn-sm btn-primary edit-thumbnail-btn" 
+                                    data-index="${index}"
+                                    style="margin-top: 0.75rem; width: 100%;">
+                                <i class="fas fa-edit"></i> Edit Thumbnail (Phase 3)
+                            </button>
                         </div>
                     </div>
                 `;
@@ -316,6 +321,26 @@
                             btn.disabled = false;
                         }, 2000);
                     }
+                });
+            });
+
+            // Edit Thumbnail buttons (Phase 3)
+            document.querySelectorAll('.edit-thumbnail-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const index = parseInt(btn.dataset.index);
+                    const t = transcripts[index];
+                    const productionTitle = document.getElementById(`prod-title-${index}`)?.value || '';
+
+                    // Store data for thumbnail editor
+                    const thumbnailData = [{
+                        video_id: t.video_id,
+                        title: t.title,
+                        thumbnail_url: `https://img.youtube.com/vi/${t.video_id}/maxresdefault.jpg`,
+                        production_title: productionTitle
+                    }];
+
+                    sessionStorage.setItem('thumbnailData', JSON.stringify(thumbnailData));
+                    window.location.href = '/thumbnail';
                 });
             });
         }

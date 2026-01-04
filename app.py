@@ -31,6 +31,11 @@ def translate_page():
     return render_template('translate.html')
 
 
+@app.route('/thumbnail')
+def thumbnail_page():
+    return render_template('thumbnail.html')
+
+
 @app.route('/api/channel/videos', methods=['GET'])
 def get_videos():
     page_token = request.args.get('pageToken')
@@ -47,7 +52,7 @@ def get_videos():
     )
     return jsonify({
         'videos': videos,
-        'nextPageToken': next_page if not config.DEV_MODE else None  # Disable pagination in dev
+        'nextPageToken': next_page  # Allow pagination to load more videos
     })
 
 
@@ -68,7 +73,7 @@ def search_videos():
     )
     return jsonify({
         'videos': videos,
-        'nextPageToken': next_page if not config.DEV_MODE else None
+        'nextPageToken': next_page  # Allow pagination to load more videos
     })
 
 
@@ -222,6 +227,214 @@ Return ONLY the JSON, nothing else."""
         return jsonify({'success': False, 'error': f'Failed to parse AI response: {str(e)}'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
+
+
+# ===== THUMBNAIL ENDPOINTS =====
+
+@app.route('/api/thumbnail/fetch', methods=['POST'])
+def fetch_thumbnail():
+    """Fetch thumbnail image from URL and return as base64."""
+    import requests
+    import base64
+    
+    data = request.json
+    url = data.get('url', '')
+    
+    if not url:
+        return jsonify({'success': False, 'error': 'No URL provided'})
+    
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        
+        image_base64 = base64.b64encode(response.content).decode('utf-8')
+        return jsonify({'success': True, 'image': image_base64})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/thumbnail/detect-text', methods=['POST'])
+def detect_text_regions():
+    """Use Gemini Vision to detect text regions in the image."""
+    import base64
+    import json
+    
+    data = request.json
+    image_data = data.get('image', '')
+    
+    if not image_data:
+        return jsonify({'success': False, 'error': 'No image provided'})
+    
+    try:
+        # Remove data URL prefix if present
+        if ',' in image_data:
+            image_data = image_data.split(',')[1]
+        
+        from google import genai
+        from google.genai import types
+        
+        client = genai.Client(api_key=config.GEMINI_API_KEY)
+        
+        prompt = """Analyze this YouTube thumbnail image and identify the text region(s).
+Return ONLY a JSON array with the bounding box coordinates for each text region.
+The coordinates should be in pixels relative to the image dimensions.
+
+Format:
+[{"x": 0, "y": 0, "width": 0, "height": 0}]
+
+Where:
+- x, y: top-left corner coordinates
+- width, height: size of the text region
+
+Focus on the main text overlay areas that need to be replaced.
+Return ONLY the JSON array, no other text."""
+
+        # Decode base64 image
+        image_bytes = base64.b64decode(image_data)
+        
+        response = client.models.generate_content(
+            model='gemini-2.0-flash',
+            contents=[
+                types.Content(
+                    role='user',
+                    parts=[
+                        types.Part.from_bytes(data=image_bytes, mime_type='image/jpeg'),
+                        types.Part.from_text(text=prompt)
+                    ]
+                )
+            ]
+        )
+        
+        response_text = response.text.strip()
+        
+        # Parse JSON from response
+        if response_text.startswith('```'):
+            response_text = response_text.split('```')[1]
+            if response_text.startswith('json'):
+                response_text = response_text[4:]
+        response_text = response_text.strip()
+        
+        regions = json.loads(response_text)
+        
+        return jsonify({'success': True, 'regions': regions})
+        
+    except json.JSONDecodeError:
+        return jsonify({'success': False, 'error': 'Failed to parse AI response'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/thumbnail/auto-analyze', methods=['POST'])
+def auto_analyze_thumbnail():
+    """Use EasyOCR (FREE, local) to detect text regions with accurate bounding boxes."""
+    import base64
+    import cv2
+    import numpy as np
+    import easyocr
+    
+    data = request.json
+    image_data = data.get('image', '')
+    
+    if not image_data:
+        return jsonify({'success': False, 'error': 'No image provided'})
+    
+    try:
+        # Remove data URL prefix if present
+        if ',' in image_data:
+            image_data = image_data.split(',')[1]
+        
+        # Decode base64 to image
+        image_bytes = base64.b64decode(image_data)
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        
+        if img is None:
+            return jsonify({'success': False, 'error': 'Failed to decode image'})
+        
+        height, width = img.shape[:2]
+        
+        # Use EasyOCR to detect text with bounding boxes
+        reader = easyocr.Reader(['en', 'ml'], gpu=False)  # Malayalam + English
+        results = reader.readtext(img)
+        
+        if results:
+            # Get bounding boxes of all detected text
+            all_boxes = [r[0] for r in results]
+            
+            # Find overall bounding box
+            all_x = []
+            all_y = []
+            for box in all_boxes:
+                for point in box:
+                    all_x.append(point[0])
+                    all_y.append(point[1])
+            
+            min_x = max(0, int(min(all_x)) - 10)
+            min_y = max(0, int(min(all_y)) - 10)
+            max_x = min(width, int(max(all_x)) + 10)
+            max_y = min(height, int(max(all_y)) + 10)
+            
+            region = {
+                'x': min_x,
+                'y': min_y,
+                'width': max_x - min_x,
+                'height': max_y - min_y
+            }
+            
+            # Sample colors from text areas
+            first_box = all_boxes[0] if all_boxes else None
+            first_line_color = '#FF0000'
+            main_text_color = '#FFFF00'
+            
+            if first_box:
+                # Get center of first text box
+                cx = int(sum(p[0] for p in first_box) / 4)
+                cy = int(sum(p[1] for p in first_box) / 4)
+                if 0 <= cy < height and 0 <= cx < width:
+                    pixel = img[cy, cx]
+                    # Check if it's red-ish
+                    if pixel[2] > 150 and pixel[1] < 100:  # High R, low G
+                        first_line_color = '#FF0000'
+                    else:
+                        first_line_color = '#{:02X}{:02X}{:02X}'.format(pixel[2], pixel[1], pixel[0])
+            
+            # Sample background from corners of detected region
+            region_img = img[min_y:max_y, min_x:max_x]
+            if region_img.size > 0:
+                corner_pixels = [
+                    region_img[2, 2] if region_img.shape[0] > 2 and region_img.shape[1] > 2 else [0,0,0]
+                ]
+                bg_color = np.mean(corner_pixels, axis=0).astype(int)
+                bg_hex = '#{:02X}{:02X}{:02X}'.format(bg_color[2], bg_color[1], bg_color[0])
+            else:
+                bg_hex = '#000000'
+        else:
+            # Fallback: use right half of image (typical for Raf Talks)
+            region = {
+                'x': width // 2,
+                'y': 0,
+                'width': width // 2,
+                'height': height
+            }
+            bg_hex = '#000000'
+            first_line_color = '#FF0000'
+            main_text_color = '#FFFF00'
+        
+        colors = {
+            'background': bg_hex if bg_hex else '#000000',
+            'firstLineText': first_line_color,
+            'mainText': main_text_color
+        }
+        
+        return jsonify({
+            'success': True, 
+            'region': region,
+            'colors': colors
+        })
+        
+    except Exception as e:
+        import traceback
+        return jsonify({'success': False, 'error': str(e), 'traceback': traceback.format_exc()})
 
 
 if __name__ == '__main__':
