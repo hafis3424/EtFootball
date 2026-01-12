@@ -67,6 +67,10 @@
                     <div class="resize-handle handle-e" data-handle="e"></div>
                     <div class="resize-handle handle-w" data-handle="w"></div>
                 </div>
+                <!-- Inline Text Editor (CorelDRAW-style) -->
+                <textarea id="inline-text-editor" style="display: none; position: absolute; background: transparent; border: 2px solid #00BFFF; 
+                    color: inherit; font-weight: bold; text-align: center; resize: none; overflow: hidden;
+                    outline: none; padding: 5px; box-sizing: border-box; z-index: 100;" spellcheck="false"></textarea>
                 <div class="canvas-placeholder" id="canvas-placeholder">
                     <i class="fas fa-image"></i>
                     <p>Select a thumbnail or enter a URL</p>
@@ -88,12 +92,7 @@
                     </button>
                 </div>
                 <div class="toolbar-divider"></div>
-                <button class="btn btn-ghost" id="ai-detect-btn" disabled>
-                    <i class="fas fa-magic"></i> AI Detect
-                </button>
-                <button class="btn btn-ghost" id="manual-select-btn" disabled>
-                    <i class="fas fa-vector-square"></i> Select Region
-                </button>
+
                 <button class="btn btn-ghost" id="show-rect-btn" disabled style="display: none;">
                     <i class="fas fa-border-style"></i> Show Rectangle
                 </button>
@@ -108,12 +107,8 @@
             <div class="panel-section">
                 <h3><i class="fas fa-font"></i> Text Content</h3>
                 <textarea id="text-input" placeholder="Enter text to overlay..." rows="4"></textarea>
-                <button class="btn btn-full" id="auto-generate-btn" disabled
-                    style="background: linear-gradient(135deg, #8b5cf6, #ec4899); color: white; margin-bottom: 0.5rem;">
-                    <i class="fas fa-magic"></i> 🚀 One-Click Auto Generate
-                </button>
                 <button class="btn btn-primary btn-full" id="apply-text-btn" disabled>
-                    <i class="fas fa-check"></i> Apply Text (Manual)
+                    <i class="fas fa-plus"></i> Add Text to Thumbnail
                 </button>
             </div>
 
@@ -139,8 +134,10 @@
                 </div>
 
                 <div class="control-group">
-                    <label>Background Color</label>
-                    <div class="color-picker-row">
+                    <label>
+                        <input type="checkbox" id="use-background"> Show Background
+                    </label>
+                    <div class="color-picker-row" style="margin-top: 0.5rem;" id="bg-color-row">
                         <input type="color" id="bg-color" value="#000000">
                         <span class="color-label">#000000</span>
                     </div>
@@ -194,6 +191,8 @@
             firstLineColor: '#FF0000',
             useFirstLineColor: false,
             bgColor: '#000000',
+            useBackground: false,
+            highlightColor: '#FF0000', // Color for *highlighted* words
             align: 'center',
             fontSize: 48,
             autoFit: true
@@ -205,6 +204,9 @@
         let drawnElements = [];
         // Currently selected element index (-1 = none)
         let selectedElementIndex = -1;
+        // Inline text editing mode
+        let isEditingText = false;
+        let editingElementIndex = -1;
 
         const canvas = document.getElementById('thumbnail-canvas');
         const ctx = canvas.getContext('2d');
@@ -249,7 +251,15 @@
 
         function loadThumbnail(thumb) {
             loadImageFromUrl(thumb.thumbnail_url);
-            document.getElementById('text-input').value = thumb.production_title || '';
+            // Clean up title: remove emojis at start and everything after |
+            let cleanTitle = thumb.production_title || '';
+            // Remove content after | symbol
+            if (cleanTitle.includes('|')) {
+                cleanTitle = cleanTitle.split('|')[0].trim();
+            }
+            // Remove leading emojis (common emoji ranges)
+            cleanTitle = cleanTitle.replace(/^[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\s]+/gu, '');
+            document.getElementById('text-input').value = cleanTitle;
         }
 
         function loadImageFromUrl(url) {
@@ -316,11 +326,8 @@
         }
 
         function enableControls() {
-            document.getElementById('ai-detect-btn').disabled = false;
-            document.getElementById('manual-select-btn').disabled = false;
             document.getElementById('reset-btn').disabled = false;
             document.getElementById('apply-text-btn').disabled = false;
-            document.getElementById('auto-generate-btn').disabled = false;
             document.getElementById('download-btn').disabled = false;
             document.getElementById('copy-btn').disabled = false;
             // Enable tool buttons
@@ -339,18 +346,11 @@
                 }
             });
 
-            // Manual selection mode
-            document.getElementById('manual-select-btn').addEventListener('click', () => {
-                selectionMode = true;
-                canvasWrapper.style.cursor = 'crosshair';
-            });
-
-            // AI detection
-            document.getElementById('ai-detect-btn').addEventListener('click', detectTextWithAI);
-
-            // Reset
+            // Reset - clear everything and redraw original image
             document.getElementById('reset-btn').addEventListener('click', () => {
                 if (originalImage) {
+                    drawnElements = [];
+                    selectedElementIndex = -1;
                     ctx.drawImage(originalImage, 0, 0);
                     selectedRegion = null;
                     selectionBox.style.display = 'none';
@@ -369,11 +369,8 @@
                 }
             });
 
-            // Apply text
-            document.getElementById('apply-text-btn').addEventListener('click', applyText);
-
-            // Auto-generate (one-click)
-            document.getElementById('auto-generate-btn').addEventListener('click', autoGenerate);
+            // Apply text - add text as movable element
+            document.getElementById('apply-text-btn').addEventListener('click', addTextElement);
 
             // Tool selection handlers
             function setActiveTool(tool) {
@@ -396,17 +393,30 @@
             // Initialize with select tool active
             setActiveTool('select');
 
-            // Color pickers - with live preview
+            // Color pickers - update selected element if one is selected
             document.getElementById('text-color').addEventListener('input', (e) => {
                 textSettings.color = e.target.value;
                 e.target.nextElementSibling.textContent = e.target.value.toUpperCase();
-                updatePreview();
+                // Update selected textbox element
+                if (selectedElementIndex >= 0 && drawnElements[selectedElementIndex].type === 'textbox') {
+                    drawnElements[selectedElementIndex].textColor = e.target.value;
+                    renderCanvas();
+                }
             });
 
             document.getElementById('bg-color').addEventListener('input', (e) => {
                 textSettings.bgColor = e.target.value;
                 e.target.nextElementSibling.textContent = e.target.value.toUpperCase();
-                updatePreview();
+                // Update selected element background
+                if (selectedElementIndex >= 0) {
+                    const elem = drawnElements[selectedElementIndex];
+                    if (elem.type === 'textbox') {
+                        elem.bgColor = e.target.value;
+                    } else if (elem.type === 'rect') {
+                        elem.color = e.target.value;
+                    }
+                    renderCanvas();
+                }
             });
 
             // First line color controls
@@ -418,7 +428,11 @@
             document.getElementById('first-line-color').addEventListener('input', (e) => {
                 textSettings.firstLineColor = e.target.value;
                 e.target.nextElementSibling.textContent = e.target.value.toUpperCase();
-                updatePreview();
+                // Update selected textbox element first line color
+                if (selectedElementIndex >= 0 && drawnElements[selectedElementIndex].type === 'textbox') {
+                    drawnElements[selectedElementIndex].firstLineColor = e.target.value;
+                    renderCanvas();
+                }
             });
 
             // Alignment buttons - with live preview
@@ -431,11 +445,26 @@
                 });
             });
 
-            // Font size slider - with live preview
+            // Font size slider - update selected element
             document.getElementById('font-size').addEventListener('input', (e) => {
                 textSettings.fontSize = parseInt(e.target.value);
                 document.getElementById('font-size-value').textContent = e.target.value;
-                updatePreview();
+                // Update selected textbox element
+                if (selectedElementIndex >= 0 && drawnElements[selectedElementIndex].type === 'textbox') {
+                    drawnElements[selectedElementIndex].fontSize = parseInt(e.target.value);
+                    renderCanvas();
+                }
+            });
+
+            // Show Background checkbox
+            document.getElementById('use-background').addEventListener('change', (e) => {
+                textSettings.useBackground = e.target.checked;
+                document.getElementById('bg-color-row').style.opacity = e.target.checked ? '1' : '0.5';
+                // Update selected textbox element
+                if (selectedElementIndex >= 0 && drawnElements[selectedElementIndex].type === 'textbox') {
+                    drawnElements[selectedElementIndex].useBackground = e.target.checked;
+                    renderCanvas();
+                }
             });
 
             // Auto-fit checkbox - with live preview
@@ -460,9 +489,150 @@
             let resizeHandleType = null; // 'nw', 'ne', 'sw', 'se'
             let resizeStart = null;
 
-            // Double-click to edit text
+            // Inline text editor element
+            const inlineEditor = document.getElementById('inline-text-editor');
+
+            // Start inline editing on a textbox element
+            function startInlineEdit(elemIndex) {
+                if (elemIndex < 0 || !drawnElements[elemIndex]) return;
+
+                const elem = drawnElements[elemIndex];
+                if (elem.type !== 'textbox' && elem.type !== 'text') return;
+
+                isEditingText = true;
+                editingElementIndex = elemIndex;
+                selectedElementIndex = elemIndex;
+
+                // Get element position on screen relative to canvas wrapper
+                const canvasRect = canvas.getBoundingClientRect();
+                const wrapperRect = canvasWrapper.getBoundingClientRect();
+                const scaleX = canvasRect.width / canvas.width;
+                const scaleY = canvasRect.height / canvas.height;
+
+                // Calculate the offset of canvas within the wrapper
+                const canvasOffsetX = canvasRect.left - wrapperRect.left;
+                const canvasOffsetY = canvasRect.top - wrapperRect.top;
+
+                // Calculate position and size matching the textbox exactly
+                let editorX, editorY, editorW, editorH, fontSize;
+
+                if (elem.type === 'textbox') {
+                    // Match the exact position and size of the rendered textbox
+                    editorX = canvasOffsetX + (elem.x * scaleX);
+                    editorY = canvasOffsetY + (elem.y * scaleY);
+                    editorW = (elem._width || 300) * scaleX;
+                    editorH = (elem._height || 100) * scaleY;
+                    fontSize = elem.fontSize * scaleY;
+                } else {
+                    ctx.font = `bold ${elem.fontSize}px Arial`;
+                    const metrics = ctx.measureText(elem.text);
+                    editorX = canvasOffsetX + (elem.x * scaleX);
+                    editorY = canvasOffsetY + (elem.y * scaleY);
+                    editorW = metrics.width * scaleX + 40;
+                    editorH = elem.fontSize * scaleY * 1.5;
+                    fontSize = elem.fontSize * scaleY;
+                }
+
+                // Position and style the editor to match textbox exactly
+                inlineEditor.style.left = editorX + 'px';
+                inlineEditor.style.top = editorY + 'px';
+                inlineEditor.style.width = Math.max(editorW, 200) + 'px';
+                inlineEditor.style.height = Math.max(editorH, 60) + 'px';
+                inlineEditor.style.fontSize = fontSize + 'px';
+                inlineEditor.style.lineHeight = (fontSize * 1.1) + 'px';
+                inlineEditor.style.color = elem.textColor || elem.color || textSettings.color;
+                inlineEditor.style.backgroundColor = elem.bgColor || textSettings.bgColor;
+                // Match the padding used in renderCanvas for textbox
+                inlineEditor.style.padding = (10 * scaleY) + 'px ' + (20 * scaleX) + 'px';
+                inlineEditor.style.display = 'block';
+
+                // Set the text - preserve newlines
+                inlineEditor.value = elem.text;
+                inlineEditor.focus();
+                inlineEditor.select();
+
+                // Hide the element while editing (redraw without it)
+                renderCanvas();
+            }
+
+            // Finish inline editing and save
+            function finishInlineEdit() {
+                if (!isEditingText || editingElementIndex < 0) return;
+
+                const elem = drawnElements[editingElementIndex];
+                const newText = inlineEditor.value.trim().toUpperCase();
+
+                if (newText !== '') {
+                    elem.text = newText;
+                }
+
+                // Hide editor
+                inlineEditor.style.display = 'none';
+                inlineEditor.value = '';
+
+                isEditingText = false;
+                editingElementIndex = -1;
+
+                renderCanvas();
+            }
+
+            // Cancel inline editing
+            function cancelInlineEdit() {
+                inlineEditor.style.display = 'none';
+                inlineEditor.value = '';
+                isEditingText = false;
+                editingElementIndex = -1;
+                renderCanvas();
+            }
+
+            // Inline editor event handlers
+            inlineEditor.addEventListener('blur', () => {
+                // Small delay to allow for intentional cancellation
+                setTimeout(() => {
+                    if (isEditingText) {
+                        finishInlineEdit();
+                    }
+                }, 100);
+            });
+
+            inlineEditor.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    cancelInlineEdit();
+                    e.preventDefault();
+                }
+                // Enter creates new line (default behavior for textarea)
+                // Ctrl+Enter to finish editing
+                if (e.key === 'Enter' && e.ctrlKey) {
+                    finishInlineEdit();
+                    e.preventDefault();
+                }
+            });
+
+            // Auto-resize editor as user types
+            inlineEditor.addEventListener('input', () => {
+                // Adjust height to fit content
+                inlineEditor.style.height = 'auto';
+                inlineEditor.style.height = Math.max(50, inlineEditor.scrollHeight) + 'px';
+            });
+
+            // Delete key to remove selected element
+            document.addEventListener('keydown', (e) => {
+                // Don't handle if editing text or if input/textarea is focused
+                if (isEditingText) return;
+                if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+
+                if ((e.key === 'Delete' || e.key === 'Backspace') && selectedElementIndex >= 0) {
+                    drawnElements.splice(selectedElementIndex, 1);
+                    selectedElementIndex = -1;
+                    renderCanvas();
+                    e.preventDefault();
+                }
+            });
+
+            // Double-click to enter inline edit mode
             canvasWrapper.addEventListener('dblclick', (e) => {
                 if (!currentImage) return;
+                if (isEditingText) return; // Already editing
 
                 const rect = canvas.getBoundingClientRect();
                 const scaleX = canvas.width / rect.width;
@@ -471,23 +641,9 @@
                 const clickY = (e.clientY - rect.top) * scaleY;
 
                 const hitIndex = hitTestElement(clickX, clickY);
-                if (hitIndex >= 0 && drawnElements[hitIndex].type === 'text') {
-                    const elem = drawnElements[hitIndex];
-
-                    // Prompt for new text
-                    const newText = prompt('Edit text:', elem.text);
-                    if (newText !== null) {
-                        elem.text = newText.toUpperCase();
-                    }
-
-                    // Option to change color
-                    const newColor = prompt('Text color (hex, e.g. #FFFF00):', elem.color);
-                    if (newColor && /^#[0-9A-Fa-f]{6}$/.test(newColor)) {
-                        elem.color = newColor.toUpperCase();
-                    }
-
-                    selectedElementIndex = hitIndex;
-                    renderCanvas();
+                if (hitIndex >= 0 && (drawnElements[hitIndex].type === 'text' || drawnElements[hitIndex].type === 'textbox')) {
+                    startInlineEdit(hitIndex);
+                    e.stopPropagation();
                 }
             });
 
@@ -508,10 +664,14 @@
                             isResizingElement = true;
                             resizeHandleType = handle;
                             const elem = drawnElements[selectedElementIndex];
+                            // Get width/height - for textbox use _width/_height
+                            let elemW = elem.width || elem._width || 0;
+                            let elemH = elem.height || elem._height || elem.fontSize || 0;
                             resizeStart = {
                                 x: clickX, y: clickY,
                                 elemX: elem.x, elemY: elem.y,
-                                elemW: elem.width || 0, elemH: elem.height || elem.fontSize || 0
+                                elemW: elemW, elemH: elemH,
+                                fontSize: elem.fontSize // Save for proportional scaling
                             };
                             return;
                         }
@@ -538,13 +698,22 @@
                     // Add text at click position
                     const text = prompt('Enter text:');
                     if (text) {
+                        // Create textbox element with all current settings (same as Add Text button)
                         drawnElements.push({
-                            type: 'text',
+                            type: 'textbox',
                             text: text.toUpperCase(),
                             x: clickX,
                             y: clickY,
-                            color: textSettings.color,
-                            fontSize: textSettings.fontSize
+                            fontSize: textSettings.fontSize,
+                            textColor: textSettings.color,
+                            bgColor: textSettings.bgColor,
+                            useBackground: textSettings.useBackground,
+                            firstLineColor: textSettings.firstLineColor,
+                            useFirstLineColor: textSettings.useFirstLineColor,
+                            highlightColor: textSettings.firstLineColor, // Use first line color for highlights
+                            maxWidth: 600,
+                            _width: 0,
+                            _height: 0
                         });
                         selectedElementIndex = drawnElements.length - 1;
                         renderCanvas();
@@ -571,24 +740,53 @@
                     const deltaX = currentX - resizeStart.x;
                     const deltaY = currentY - resizeStart.y;
 
-                    if (elem.type === 'rect') {
-                        // Handle different corners
+                    if (elem.type === 'rect' || elem.type === 'textbox') {
+                        // Handle all 8 resize handles
+                        const minSize = 20;
+
+                        // Corner handles
                         if (resizeHandleType === 'se') {
-                            elem.width = Math.max(20, resizeStart.elemW + deltaX);
-                            elem.height = Math.max(20, resizeStart.elemH + deltaY);
+                            elem.width = Math.max(minSize, resizeStart.elemW + deltaX);
+                            elem.height = Math.max(minSize, resizeStart.elemH + deltaY);
                         } else if (resizeHandleType === 'sw') {
                             elem.x = resizeStart.elemX + deltaX;
-                            elem.width = Math.max(20, resizeStart.elemW - deltaX);
-                            elem.height = Math.max(20, resizeStart.elemH + deltaY);
+                            elem.width = Math.max(minSize, resizeStart.elemW - deltaX);
+                            elem.height = Math.max(minSize, resizeStart.elemH + deltaY);
                         } else if (resizeHandleType === 'ne') {
                             elem.y = resizeStart.elemY + deltaY;
-                            elem.width = Math.max(20, resizeStart.elemW + deltaX);
-                            elem.height = Math.max(20, resizeStart.elemH - deltaY);
+                            elem.width = Math.max(minSize, resizeStart.elemW + deltaX);
+                            elem.height = Math.max(minSize, resizeStart.elemH - deltaY);
                         } else if (resizeHandleType === 'nw') {
                             elem.x = resizeStart.elemX + deltaX;
                             elem.y = resizeStart.elemY + deltaY;
-                            elem.width = Math.max(20, resizeStart.elemW - deltaX);
-                            elem.height = Math.max(20, resizeStart.elemH - deltaY);
+                            elem.width = Math.max(minSize, resizeStart.elemW - deltaX);
+                            elem.height = Math.max(minSize, resizeStart.elemH - deltaY);
+                        }
+                        // Side handles (horizontal/vertical only)
+                        else if (resizeHandleType === 'n') {
+                            elem.y = resizeStart.elemY + deltaY;
+                            elem.height = Math.max(minSize, resizeStart.elemH - deltaY);
+                        } else if (resizeHandleType === 's') {
+                            elem.height = Math.max(minSize, resizeStart.elemH + deltaY);
+                        } else if (resizeHandleType === 'e') {
+                            elem.width = Math.max(minSize, resizeStart.elemW + deltaX);
+                        } else if (resizeHandleType === 'w') {
+                            elem.x = resizeStart.elemX + deltaX;
+                            elem.width = Math.max(minSize, resizeStart.elemW - deltaX);
+                        }
+
+                        // For textbox, update properties and scale font with vertical resize
+                        if (elem.type === 'textbox') {
+                            elem.maxWidth = elem.width - 40; // Account for padding
+                            elem._width = elem.width;
+                            elem._height = elem.height;
+
+                            // Scale font size proportionally on vertical resize
+                            if (['n', 's', 'nw', 'ne', 'sw', 'se'].includes(resizeHandleType)) {
+                                const heightRatio = elem.height / resizeStart.elemH;
+                                const baseFontSize = resizeStart.fontSize || elem.fontSize;
+                                elem.fontSize = Math.max(12, Math.min(200, Math.round(baseFontSize * heightRatio)));
+                            }
                         }
                     } else if (elem.type === 'text') {
                         // For text, resize means change font size
@@ -823,6 +1021,11 @@
 
             // Draw all elements
             drawnElements.forEach((elem, idx) => {
+                // Skip the element being edited - inline editor replaces it visually
+                if (isEditingText && idx === editingElementIndex) {
+                    return;
+                }
+
                 if (elem.type === 'rect') {
                     ctx.fillStyle = elem.color;
                     ctx.fillRect(elem.x, elem.y, elem.width, elem.height);
@@ -831,13 +1034,133 @@
                     ctx.font = `bold ${elem.fontSize}px Arial`;
                     ctx.textBaseline = 'top';
                     ctx.fillText(elem.text, elem.x, elem.y);
+                } else if (elem.type === 'textbox') {
+                    // Padding for text inside the box
+                    const paddingX = 20;
+                    const paddingY = 10;
+
+                    // Calculate text dimensions first
+                    ctx.font = `bold ${elem.fontSize}px Arial`;
+                    const lines = wrapTextForElement(elem.text, elem.maxWidth || 600, elem.fontSize);
+                    const lineHeight = elem.fontSize * 1.1;
+                    const totalTextHeight = lines.length * lineHeight;
+
+                    let maxLineWidth = 0;
+                    lines.forEach(line => {
+                        const metrics = ctx.measureText(line);
+                        if (metrics.width > maxLineWidth) maxLineWidth = metrics.width;
+                    });
+
+                    // Calculate minimum size needed for text
+                    const textNeedsWidth = maxLineWidth + paddingX * 2;
+                    const textNeedsHeight = totalTextHeight + paddingY * 2;
+
+                    // Background must be at least as big as the text needs
+                    const rectWidth = Math.max(elem.width || 0, textNeedsWidth);
+                    const rectHeight = Math.max(elem.height || 0, textNeedsHeight);
+
+                    // Store dimensions for hit testing (don't modify elem.width/height during render)
+                    elem._width = rectWidth;
+                    elem._height = rectHeight;
+
+                    // Draw background rectangle only if enabled
+                    if (elem.useBackground !== false) {
+                        ctx.fillStyle = elem.bgColor || '#000000';
+                        ctx.fillRect(elem.x, elem.y, rectWidth, rectHeight);
+                    }
+
+                    // Save context state before changing textAlign
+                    ctx.save();
+
+                    // Draw text lines with word-level coloring support
+                    // Words wrapped in *asterisks* are highlighted
+                    ctx.textBaseline = 'top';
+                    const startY = elem.y + paddingY;
+                    const highlightColor = elem.highlightColor || elem.firstLineColor || '#FF0000';
+                    const normalColor = elem.textColor || '#FFFF00';
+
+                    lines.forEach((line, i) => {
+                        // Parse line for *highlighted* words
+                        const parts = line.split(/(\*[^*]+\*)/g);
+
+                        // Calculate total line width for centering
+                        let totalWidth = 0;
+                        parts.forEach(part => {
+                            const cleanPart = part.replace(/\*/g, '');
+                            totalWidth += ctx.measureText(cleanPart).width;
+                        });
+
+                        // Start drawing from left, centered
+                        let currentX = elem.x + (rectWidth - totalWidth) / 2;
+                        const lineY = startY + i * lineHeight;
+
+                        ctx.textAlign = 'left';
+                        parts.forEach(part => {
+                            const isHighlighted = part.startsWith('*') && part.endsWith('*');
+                            const cleanPart = part.replace(/\*/g, '');
+
+                            if (cleanPart) {
+                                // Use first line color for first line if enabled
+                                if (i === 0 && elem.useFirstLineColor && !isHighlighted) {
+                                    ctx.fillStyle = elem.firstLineColor || '#FF0000';
+                                } else if (isHighlighted) {
+                                    ctx.fillStyle = highlightColor;
+                                } else {
+                                    ctx.fillStyle = normalColor;
+                                }
+                                ctx.fillText(cleanPart, currentX, lineY);
+                                currentX += ctx.measureText(cleanPart).width;
+                            }
+                        });
+                    });
+
+                    // Restore context state
+                    ctx.restore();
                 }
 
-                // Draw selection handles if this element is selected
-                if (idx === selectedElementIndex) {
+                // Draw selection handles if this element is selected (and not being edited)
+                if (idx === selectedElementIndex && !isEditingText) {
                     drawSelectionHandles(elem);
                 }
             });
+        }
+
+        // Helper function to wrap text for textbox element
+        // Supports explicit line breaks from Enter key
+        function wrapTextForElement(text, maxWidth, fontSize) {
+            ctx.font = `bold ${fontSize}px Arial`;
+            const lines = [];
+
+            // First split by explicit line breaks (Enter key)
+            const paragraphs = text.split('\n');
+
+            paragraphs.forEach(paragraph => {
+                if (paragraph.trim() === '') {
+                    lines.push(''); // Keep empty lines for spacing
+                    return;
+                }
+
+                const words = paragraph.split(' ');
+                let currentLine = '';
+
+                words.forEach(word => {
+                    const testLine = currentLine ? currentLine + ' ' + word : word;
+                    const metrics = ctx.measureText(testLine);
+
+                    if (metrics.width > maxWidth && currentLine) {
+                        lines.push(currentLine);
+                        currentLine = word;
+                    } else {
+                        currentLine = testLine;
+                    }
+                });
+
+                if (currentLine) {
+                    lines.push(currentLine);
+                }
+            });
+
+            return lines.length > 0 ? lines : [text];
         }
 
         // Draw selection handles around an element
@@ -850,21 +1173,53 @@
                 const metrics = ctx.measureText(elem.text);
                 x = elem.x; y = elem.y;
                 w = metrics.width; h = elem.fontSize;
+            } else if (elem.type === 'textbox') {
+                x = elem.x; y = elem.y;
+                w = elem._width || 100; h = elem._height || 50;
             }
 
             // Draw dashed border
-            ctx.strokeStyle = '#00BFFF';
-            ctx.lineWidth = 2;
-            ctx.setLineDash([5, 3]);
-            ctx.strokeRect(x - 2, y - 2, w + 4, h + 4);
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 4]);
+            ctx.strokeRect(x, y, w, h);
             ctx.setLineDash([]);
 
-            // Draw corner handles
-            const handleSize = 8;
-            ctx.fillStyle = '#00BFFF';
-            [[x - 2, y - 2], [x + w - 2, y - 2], [x - 2, y + h - 2], [x + w - 2, y + h - 2]].forEach(([hx, hy]) => {
+            // Draw 8 handles (CorelDRAW style: white fill, black border)
+            const handleSize = 7;
+
+            // All 8 handle positions
+            const handles = [
+                [x, y],                 // nw
+                [x + w / 2, y],           // n
+                [x + w, y],             // ne
+                [x + w, y + h / 2],       // e
+                [x + w, y + h],         // se
+                [x + w / 2, y + h],       // s
+                [x, y + h],             // sw
+                [x, y + h / 2]            // w
+            ];
+
+            // Draw each handle as white square with black border
+            handles.forEach(([hx, hy]) => {
+                ctx.fillStyle = '#FFFFFF';
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 1;
                 ctx.fillRect(hx - handleSize / 2, hy - handleSize / 2, handleSize, handleSize);
+                ctx.strokeRect(hx - handleSize / 2, hy - handleSize / 2, handleSize, handleSize);
             });
+
+            // Center cross marker
+            const cx = x + w / 2;
+            const cy = y + h / 2;
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(cx - 5, cy);
+            ctx.lineTo(cx + 5, cy);
+            ctx.moveTo(cx, cy - 5);
+            ctx.lineTo(cx, cy + 5);
+            ctx.stroke();
         }
 
         // Hit test - find which element is at the given canvas coordinates
@@ -880,6 +1235,9 @@
                     const metrics = ctx.measureText(elem.text);
                     x = elem.x; y = elem.y;
                     w = metrics.width; h = elem.fontSize;
+                } else if (elem.type === 'textbox') {
+                    x = elem.x; y = elem.y;
+                    w = elem._width || 100; h = elem._height || 50;
                 }
                 if (clickX >= x && clickX <= x + w && clickY >= y && clickY <= y + h) {
                     return i;
@@ -888,7 +1246,7 @@
             return -1;
         }
 
-        // Hit test for resize handles of selected element
+        // Hit test for resize handles of selected element (8 handles)
         function hitTestResizeHandle(clickX, clickY) {
             if (selectedElementIndex < 0) return null;
 
@@ -901,14 +1259,23 @@
                 const metrics = ctx.measureText(elem.text);
                 x = elem.x; y = elem.y;
                 w = metrics.width; h = elem.fontSize;
+            } else if (elem.type === 'textbox') {
+                x = elem.x; y = elem.y;
+                w = elem._width || 100; h = elem._height || 50;
             }
 
-            const handleSize = 12; // Slightly larger for easier clicking
+            const handleSize = 12; // Larger for easier clicking
+
+            // All 8 handles
             const handles = {
-                'nw': [x - 2, y - 2],
-                'ne': [x + w - 2, y - 2],
-                'sw': [x - 2, y + h - 2],
-                'se': [x + w - 2, y + h - 2]
+                'nw': [x, y],
+                'n': [x + w / 2, y],
+                'ne': [x + w, y],
+                'e': [x + w, y + h / 2],
+                'se': [x + w, y + h],
+                's': [x + w / 2, y + h],
+                'sw': [x, y + h],
+                'w': [x, y + h / 2]
             };
 
             for (const [name, [hx, hy]] of Object.entries(handles)) {
@@ -929,285 +1296,48 @@
             return url; // Return as-is if not a YouTube URL
         }
 
-        async function detectTextWithAI() {
-            if (!currentImage) return;
-
-            const btn = document.getElementById('ai-detect-btn');
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Detecting...';
-
-            try {
-                const imageData = canvas.toDataURL('image/jpeg', 0.8);
-                const res = await fetch('/api/thumbnail/detect-text', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ image: imageData })
-                });
-                const data = await res.json();
-
-                if (data.success && data.regions && data.regions.length > 0) {
-                    selectedRegion = data.regions[0]; // Use first detected region
-                    updateSelectionBoxPosition();
-                } else {
-                    alert('No text regions detected. Try manual selection.');
-                }
-            } catch (err) {
-                alert('AI detection failed. Try manual selection.');
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-magic"></i> AI Detect Text';
+        // Add text element - creates a movable textbox with background
+        function addTextElement() {
+            if (!currentImage) {
+                alert('Please load a thumbnail first');
+                return;
             }
-        }
 
-        // One-click auto generate - detects region, colors, and applies text
-        async function autoGenerate() {
-            if (!currentImage) return;
-
-            const text = document.getElementById('text-input').value.trim();
+            const text = document.getElementById('text-input').value.trim().toUpperCase();
             if (!text) {
                 alert('Please enter text first');
                 return;
             }
 
-            const btn = document.getElementById('auto-generate-btn');
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+            // Create textbox element at center of canvas
+            const centerX = canvas.width / 2 - 150;
+            const centerY = canvas.height / 2 - 50;
 
-            try {
-                const imageData = canvas.toDataURL('image/jpeg', 0.8);
-                const res = await fetch('/api/thumbnail/auto-analyze', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ image: imageData })
-                });
-                const data = await res.json();
+            const textboxElement = {
+                type: 'textbox',
+                text: text,
+                x: centerX,
+                y: centerY,
+                fontSize: textSettings.fontSize,
+                textColor: textSettings.color,
+                bgColor: textSettings.bgColor,
+                useBackground: textSettings.useBackground,
+                firstLineColor: textSettings.firstLineColor,
+                useFirstLineColor: textSettings.useFirstLineColor,
+                maxWidth: 600, // default max width for text wrapping
+                _width: 0,
+                _height: 0
+            };
 
-                if (data.success) {
-                    // Apply detected region
-                    if (data.region) {
-                        selectedRegion = data.region;
-                    }
+            drawnElements.push(textboxElement);
+            selectedElementIndex = drawnElements.length - 1;
 
-                    // Apply detected colors
-                    if (data.colors) {
-                        if (data.colors.background) {
-                            textSettings.bgColor = data.colors.background;
-                            document.getElementById('bg-color').value = data.colors.background;
-                        }
-                        if (data.colors.mainText) {
-                            textSettings.color = data.colors.mainText;
-                            document.getElementById('text-color').value = data.colors.mainText;
-                        }
-                        if (data.colors.firstLineText && data.colors.firstLineText !== data.colors.mainText) {
-                            textSettings.useFirstLineColor = true;
-                            textSettings.firstLineColor = data.colors.firstLineText;
-                            document.getElementById('use-first-line-color').checked = true;
-                            document.getElementById('first-line-color').value = data.colors.firstLineText;
-                        }
-                    }
+            // Switch to select tool so user can move the element
+            currentTool = 'select';
+            document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('select-tool-btn').classList.add('active');
 
-                    // Apply text
-                    applyText();
-
-                    // Show success
-                    btn.innerHTML = '<i class="fas fa-check"></i> Done!';
-                    setTimeout(() => {
-                        btn.innerHTML = '<i class="fas fa-magic"></i> 🚀 One-Click Auto Generate';
-                        btn.disabled = false;
-                    }, 1500);
-                } else {
-                    alert('Auto-generate failed: ' + (data.error || 'Unknown error'));
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="fas fa-magic"></i> 🚀 One-Click Auto Generate';
-                }
-            } catch (err) {
-                alert('Auto-generate failed. Try manual approach.');
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-magic"></i> 🚀 One-Click Auto Generate';
-            }
-        }
-
-        // Live preview - update canvas without hiding selection
-        function updatePreview() {
-            if (!selectedRegion || !originalImage) return;
-
-            const text = document.getElementById('text-input').value.toUpperCase();
-            if (!text.trim()) {
-                // Just redraw original image if no text
-                ctx.drawImage(originalImage, 0, 0);
-                return;
-            }
-
-            // Redraw original image
-            ctx.drawImage(originalImage, 0, 0);
-
-            // Fill selected region with background color
-            ctx.fillStyle = textSettings.bgColor;
-            ctx.fillRect(selectedRegion.x, selectedRegion.y, selectedRegion.width, selectedRegion.height);
-
-            // Calculate font size
-            let fontSize = textSettings.fontSize;
-            if (textSettings.autoFit) {
-                fontSize = calculateFitFontSize(text, selectedRegion.width - 20, selectedRegion.height - 20);
-            }
-
-            // Setup text style
-            ctx.fillStyle = textSettings.color;
-            ctx.font = `bold ${fontSize}px Arial`;
-            ctx.textBaseline = 'top';
-
-            // Text alignment
-            let textX;
-            if (textSettings.align === 'left') {
-                ctx.textAlign = 'left';
-                textX = selectedRegion.x + 10;
-            } else if (textSettings.align === 'right') {
-                ctx.textAlign = 'right';
-                textX = selectedRegion.x + selectedRegion.width - 10;
-            } else {
-                ctx.textAlign = 'center';
-                textX = selectedRegion.x + selectedRegion.width / 2;
-            }
-
-            // Wrap and draw text
-            const lines = wrapText(text, selectedRegion.width - 20, fontSize);
-            const lineHeight = fontSize * 1.1;
-            const totalHeight = lines.length * lineHeight;
-            let startY = selectedRegion.y + (selectedRegion.height - totalHeight) / 2;
-
-            // Clip text to selection region
-            ctx.save();
-            ctx.beginPath();
-            ctx.rect(selectedRegion.x, selectedRegion.y, selectedRegion.width, selectedRegion.height);
-            ctx.clip();
-
-            lines.forEach((line, i) => {
-                // Use first line color if enabled and this is the first line
-                if (i === 0 && textSettings.useFirstLineColor) {
-                    ctx.fillStyle = textSettings.firstLineColor;
-                } else {
-                    ctx.fillStyle = textSettings.color;
-                }
-                ctx.fillText(line, textX, startY + i * lineHeight);
-            });
-
-            ctx.restore();
-        }
-
-        function applyText() {
-            if (!selectedRegion || !originalImage) {
-                alert('Please select a region first (AI Detect or Manual Select)');
-                return;
-            }
-
-            const text = document.getElementById('text-input').value.toUpperCase();
-            if (!text.trim()) {
-                alert('Please enter text');
-                return;
-            }
-
-            // Redraw original image
-            ctx.drawImage(originalImage, 0, 0);
-
-            // Fill selected region with background color
-            ctx.fillStyle = textSettings.bgColor;
-            ctx.fillRect(selectedRegion.x, selectedRegion.y, selectedRegion.width, selectedRegion.height);
-
-            // Calculate font size
-            let fontSize = textSettings.fontSize;
-            if (textSettings.autoFit) {
-                fontSize = calculateFitFontSize(text, selectedRegion.width - 20, selectedRegion.height - 20);
-            }
-
-            // Setup text style
-            ctx.fillStyle = textSettings.color;
-            ctx.font = `bold ${fontSize}px Arial`;
-            ctx.textBaseline = 'top';
-
-            // Text alignment
-            let textX;
-            if (textSettings.align === 'left') {
-                ctx.textAlign = 'left';
-                textX = selectedRegion.x + 10;
-            } else if (textSettings.align === 'right') {
-                ctx.textAlign = 'right';
-                textX = selectedRegion.x + selectedRegion.width - 10;
-            } else {
-                ctx.textAlign = 'center';
-                textX = selectedRegion.x + selectedRegion.width / 2;
-            }
-
-            // Wrap and draw text
-            const lines = wrapText(text, selectedRegion.width - 20, fontSize);
-            const lineHeight = fontSize * 1.1;
-            const totalHeight = lines.length * lineHeight;
-            let startY = selectedRegion.y + (selectedRegion.height - totalHeight) / 2;
-
-            // Clip text to selection region
-            ctx.save();
-            ctx.beginPath();
-            ctx.rect(selectedRegion.x, selectedRegion.y, selectedRegion.width, selectedRegion.height);
-            ctx.clip();
-
-            lines.forEach((line, i) => {
-                // Use first line color if enabled and this is the first line
-                if (i === 0 && textSettings.useFirstLineColor) {
-                    ctx.fillStyle = textSettings.firstLineColor;
-                } else {
-                    ctx.fillStyle = textSettings.color;
-                }
-                ctx.fillText(line, textX, startY + i * lineHeight);
-            });
-
-            ctx.restore();
-
-            // Hide selection box but show the "Show Rectangle" button for adjustments
-            selectionBox.style.display = 'none';
-            document.getElementById('show-rect-btn').style.display = 'inline-flex';
-            document.getElementById('show-rect-btn').disabled = false;
-            document.getElementById('show-rect-btn').innerHTML = '<i class="fas fa-border-style"></i> Show Rectangle';
-        }
-
-        function calculateFitFontSize(text, maxWidth, maxHeight) {
-            let fontSize = 100;
-            const minFontSize = 20;
-
-            while (fontSize > minFontSize) {
-                ctx.font = `bold ${fontSize}px Arial`;
-                const lines = wrapText(text, maxWidth, fontSize);
-                const totalHeight = lines.length * fontSize * 1.2;
-
-                if (totalHeight <= maxHeight) {
-                    return fontSize;
-                }
-                fontSize -= 2;
-            }
-            return minFontSize;
-        }
-
-        function wrapText(text, maxWidth, fontSize) {
-            ctx.font = `bold ${fontSize}px Arial`;
-            const words = text.split(' ');
-            const lines = [];
-            let currentLine = '';
-
-            words.forEach(word => {
-                const testLine = currentLine ? currentLine + ' ' + word : word;
-                const metrics = ctx.measureText(testLine);
-
-                if (metrics.width > maxWidth && currentLine) {
-                    lines.push(currentLine);
-                    currentLine = word;
-                } else {
-                    currentLine = testLine;
-                }
-            });
-
-            if (currentLine) {
-                lines.push(currentLine);
-            }
-
-            return lines;
+            renderCanvas();
         }
 
         // Initialize
