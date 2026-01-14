@@ -149,6 +149,18 @@
                         <input type="color" id="first-line-color" value="#FF0000">
                         <span class="color-label">#FF0000</span>
                     </div>
+                    <p style="font-size: 0.75rem; color: #888; margin-top: 0.25rem;">Use <code>*text*</code> for this
+                        color</p>
+                </div>
+
+                <div class="control-group">
+                    <label>Highlight Color 2</label>
+                    <div class="color-picker-row">
+                        <input type="color" id="highlight-color-2" value="#00FF00">
+                        <span class="color-label">#00FF00</span>
+                    </div>
+                    <p style="font-size: 0.75rem; color: #888; margin-top: 0.25rem;">Use <code>~text~</code> for this
+                        color</p>
                 </div>
 
                 <div class="control-group">
@@ -211,6 +223,7 @@
             bgColor: '#000000',
             useBackground: false,
             highlightColor: '#FF0000', // Color for *highlighted* words
+            highlightColor2: '#00FF00', // Color for ~highlighted~ words
             align: 'center',
             fontSize: 48,
             autoFit: true
@@ -475,6 +488,17 @@
                 // Update selected textbox element first line color
                 if (selectedElementIndex >= 0 && drawnElements[selectedElementIndex].type === 'textbox') {
                     drawnElements[selectedElementIndex].firstLineColor = e.target.value;
+                    renderCanvas();
+                }
+            });
+
+            // Highlight Color 2 (for ~text~)
+            document.getElementById('highlight-color-2').addEventListener('input', (e) => {
+                textSettings.highlightColor2 = e.target.value;
+                e.target.nextElementSibling.textContent = e.target.value.toUpperCase();
+                // Update selected textbox element
+                if (selectedElementIndex >= 0 && drawnElements[selectedElementIndex].type === 'textbox') {
+                    drawnElements[selectedElementIndex].highlightColor2 = e.target.value;
                     renderCanvas();
                 }
             });
@@ -1124,13 +1148,14 @@
                     const normalColor = elem.textColor || '#FFFF00';
 
                     lines.forEach((line, i) => {
-                        // Parse line for *highlighted* words
-                        const parts = line.split(/(\*[^*]+\*)/g);
+                        // Parse line for *highlighted* and ~highlighted2~ words
+                        // Split on both *text* and ~text~ patterns
+                        const parts = line.split(/(\*[^*]+\*|~[^~]+~)/g);
 
                         // Calculate total line width for centering
                         let totalWidth = 0;
                         parts.forEach(part => {
-                            const cleanPart = part.replace(/\*/g, '');
+                            const cleanPart = part.replace(/[\*~]/g, '');
                             totalWidth += ctx.measureText(cleanPart).width;
                         });
 
@@ -1140,15 +1165,18 @@
 
                         ctx.textAlign = 'left';
                         parts.forEach(part => {
-                            const isHighlighted = part.startsWith('*') && part.endsWith('*');
-                            const cleanPart = part.replace(/\*/g, '');
+                            const isHighlighted1 = part.startsWith('*') && part.endsWith('*');
+                            const isHighlighted2 = part.startsWith('~') && part.endsWith('~');
+                            const cleanPart = part.replace(/[\*~]/g, '');
 
                             if (cleanPart) {
                                 // Use first line color for first line if enabled
-                                if (i === 0 && elem.useFirstLineColor && !isHighlighted) {
+                                if (i === 0 && elem.useFirstLineColor && !isHighlighted1 && !isHighlighted2) {
                                     ctx.fillStyle = elem.firstLineColor || '#FF0000';
-                                } else if (isHighlighted) {
+                                } else if (isHighlighted1) {
                                     ctx.fillStyle = highlightColor;
+                                } else if (isHighlighted2) {
+                                    ctx.fillStyle = elem.highlightColor2 || textSettings.highlightColor2 || '#00FF00';
                                 } else {
                                     ctx.fillStyle = normalColor;
                                 }
@@ -1171,6 +1199,7 @@
 
         // Helper function to wrap text for textbox element
         // Supports explicit line breaks from Enter key
+        // Preserves *highlight* and ~highlight2~ markers across wrapped lines
         function wrapTextForElement(text, maxWidth, fontSize) {
             ctx.font = `bold ${fontSize}px Arial`;
             const lines = [];
@@ -1186,17 +1215,39 @@
 
                 const words = paragraph.split(' ');
                 let currentLine = '';
+                let inMarker1 = false; // tracking *...*
+                let inMarker2 = false; // tracking ~...~
 
                 words.forEach(word => {
-                    const testLine = currentLine ? currentLine + ' ' + word : word;
-                    const metrics = ctx.measureText(testLine);
+                    // Count markers in this word to track state
+                    const asterisks = (word.match(/\*/g) || []).length;
+                    const tildes = (word.match(/~/g) || []).length;
+
+                    // Clean word for width measurement (without markers)
+                    const cleanWord = word.replace(/[\*~]/g, '');
+                    const cleanCurrentLine = currentLine.replace(/[\*~]/g, '');
+                    const testClean = cleanCurrentLine ? cleanCurrentLine + ' ' + cleanWord : cleanWord;
+                    const metrics = ctx.measureText(testClean);
 
                     if (metrics.width > maxWidth && currentLine) {
-                        lines.push(currentLine);
-                        currentLine = word;
+                        // Need to wrap - close any open markers and push line
+                        let lineToAdd = currentLine;
+                        if (inMarker1) lineToAdd += '*';
+                        if (inMarker2) lineToAdd += '~';
+                        lines.push(lineToAdd);
+
+                        // Start new line - reopen any markers
+                        currentLine = '';
+                        if (inMarker1) currentLine += '*';
+                        if (inMarker2) currentLine += '~';
+                        currentLine += word;
                     } else {
-                        currentLine = testLine;
+                        currentLine = currentLine ? currentLine + ' ' + word : word;
                     }
+
+                    // Update marker state based on this word
+                    if (asterisks % 2 === 1) inMarker1 = !inMarker1;
+                    if (tildes % 2 === 1) inMarker2 = !inMarker2;
                 });
 
                 if (currentLine) {
