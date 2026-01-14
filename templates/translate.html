@@ -47,6 +47,17 @@
         <div id="transcripts-list">
             <!-- Transcript cards injected here -->
         </div>
+
+        <!-- Edit All Thumbnails Button -->
+        <div id="edit-all-thumbnails-container"
+            style="display: none; margin-top: 2rem; text-align: center; padding-bottom: 2rem;">
+            <button class="btn btn-primary" id="edit-all-thumbnails-btn" style="padding: 1rem 2rem; font-size: 1.1rem;">
+                <i class="fas fa-images"></i> Edit All Thumbnails (Phase 3)
+            </button>
+            <p style="margin-top: 0.75rem; color: #888; font-size: 0.9rem;">
+                Open all video thumbnails in the editor
+            </p>
+        </div>
     </div>
 
     <!-- Floating Navigation Arrows -->
@@ -232,8 +243,29 @@
 
             attachEventHandlers();
 
+            // Show the "Edit All Thumbnails" button if transcripts exist
+            if (transcripts.length > 0) {
+                document.getElementById('edit-all-thumbnails-container').style.display = 'block';
+            }
+
             // Auto-translate on page load
             autoTranslateAll();
+        }
+
+        // Go to thumbnail editor with ALL videos
+        function goToAllThumbnails() {
+            const thumbnailData = transcripts.map((t, index) => {
+                const productionTitle = document.getElementById(`prod-title-${index}`)?.value || '';
+                return {
+                    video_id: t.video_id,
+                    title: t.title,
+                    thumbnail_url: `https://img.youtube.com/vi/${t.video_id}/maxresdefault.jpg`,
+                    production_title: productionTitle
+                };
+            });
+
+            sessionStorage.setItem('thumbnailData', JSON.stringify(thumbnailData));
+            window.location.href = '/thumbnail';
         }
 
         function attachEventHandlers() {
@@ -343,6 +375,9 @@
                     window.location.href = '/thumbnail';
                 });
             });
+
+            // Edit All Thumbnails button (Phase 3 - batch mode)
+            document.getElementById('edit-all-thumbnails-btn').addEventListener('click', goToAllThumbnails);
         }
 
         // Auto-translate to English

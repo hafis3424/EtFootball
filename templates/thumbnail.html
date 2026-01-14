@@ -8,6 +8,24 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        .thumb-item {
+            position: relative;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .thumb-item:hover {
+            border-color: rgba(59, 130, 246, 0.5);
+        }
+
+        .thumb-item.active {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.15) !important;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+        }
+    </style>
 </head>
 
 <body>
@@ -237,6 +255,7 @@
             thumbnails.forEach((thumb, index) => {
                 const item = document.createElement('div');
                 item.className = 'thumb-item';
+                item.dataset.index = index;
                 item.innerHTML = `
                     <img src="${thumb.thumbnail_url}" alt="${thumb.title}">
                     <div class="thumb-item-info">
@@ -244,9 +263,34 @@
                         <p class="thumb-text-preview">${thumb.production_title || 'No title'}</p>
                     </div>
                 `;
-                item.addEventListener('click', () => loadThumbnail(thumb));
+                item.addEventListener('click', () => selectThumbnail(index));
                 list.appendChild(item);
             });
+
+            // Auto-load first thumbnail
+            if (thumbnails.length > 0) {
+                selectThumbnail(0);
+            }
+        }
+
+        // Track currently selected thumbnail index
+        let selectedThumbnailIndex = -1;
+
+        function selectThumbnail(index) {
+            selectedThumbnailIndex = index;
+            const thumb = thumbnails[index];
+
+            // Update active state in sidebar
+            document.querySelectorAll('.thumb-item').forEach((item, i) => {
+                if (i === index) {
+                    item.classList.add('active');
+                } else {
+                    item.classList.remove('active');
+                }
+            });
+
+            // Load the thumbnail
+            loadThumbnail(thumb);
         }
 
         function loadThumbnail(thumb) {
