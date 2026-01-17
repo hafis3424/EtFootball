@@ -48,14 +48,23 @@
             <!-- Transcript cards injected here -->
         </div>
 
-        <!-- Edit All Thumbnails Button -->
-        <div id="edit-all-thumbnails-container"
+        <!-- Action Buttons Container -->
+        <div id="action-buttons-container"
             style="display: none; margin-top: 2rem; text-align: center; padding-bottom: 2rem;">
+
+            <!-- Generate All Production Button -->
+            <button class="btn btn-secondary" id="generate-all-production-btn"
+                style="padding: 1rem 2rem; font-size: 1.1rem; margin-right: 1rem;">
+                <i class="fas fa-magic"></i> Generate All Production Outputs
+            </button>
+
+            <!-- Edit All Thumbnails Button -->
             <button class="btn btn-primary" id="edit-all-thumbnails-btn" style="padding: 1rem 2rem; font-size: 1.1rem;">
                 <i class="fas fa-images"></i> Edit All Thumbnails (Phase 3)
             </button>
+
             <p style="margin-top: 0.75rem; color: #888; font-size: 0.9rem;">
-                Open all video thumbnails in the editor
+                <span id="generate-all-status"></span>
             </p>
         </div>
     </div>
@@ -243,9 +252,9 @@
 
             attachEventHandlers();
 
-            // Show the "Edit All Thumbnails" button if transcripts exist
+            // Show the action buttons if transcripts exist
             if (transcripts.length > 0) {
-                document.getElementById('edit-all-thumbnails-container').style.display = 'block';
+                document.getElementById('action-buttons-container').style.display = 'block';
             }
 
             // Auto-translate on page load
@@ -254,6 +263,9 @@
 
         // Go to thumbnail editor with ALL videos
         function goToAllThumbnails() {
+            // Save translation state before navigating away
+            saveTranslationState();
+
             const thumbnailData = transcripts.map((t, index) => {
                 const productionTitle = document.getElementById(`prod-title-${index}`)?.value || '';
                 return {
@@ -359,6 +371,9 @@
             // Edit Thumbnail buttons (Phase 3)
             document.querySelectorAll('.edit-thumbnail-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
+                    // Save translation state before navigating away
+                    saveTranslationState();
+
                     const index = parseInt(btn.dataset.index);
                     const t = transcripts[index];
                     const productionTitle = document.getElementById(`prod-title-${index}`)?.value || '';
@@ -378,6 +393,50 @@
 
             // Edit All Thumbnails button (Phase 3 - batch mode)
             document.getElementById('edit-all-thumbnails-btn').addEventListener('click', goToAllThumbnails);
+
+            // Generate All Production button
+            document.getElementById('generate-all-production-btn').addEventListener('click', generateAllProduction);
+        }
+
+        // Generate production output for ALL transcripts
+        async function generateAllProduction() {
+            const btn = document.getElementById('generate-all-production-btn');
+            const statusSpan = document.getElementById('generate-all-status');
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+
+            let successCount = 0;
+            let errorCount = 0;
+
+            for (let i = 0; i < transcripts.length; i++) {
+                statusSpan.innerHTML = `<i class="fas fa-cog fa-spin"></i> Processing ${i + 1}/${transcripts.length}...`;
+
+                try {
+                    await generateProduction(i);
+                    successCount++;
+                } catch (err) {
+                    errorCount++;
+                    console.error(`Failed to generate production for video ${i}:`, err);
+                }
+
+                // Small delay between API calls
+                if (i < transcripts.length - 1) {
+                    await new Promise(r => setTimeout(r, 500));
+                }
+            }
+
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-magic"></i> Generate All Production Outputs';
+
+            if (errorCount === 0) {
+                statusSpan.innerHTML = `<i class="fas fa-check-circle" style="color: #4caf50;"></i> All ${successCount} production outputs generated!`;
+            } else {
+                statusSpan.innerHTML = `<i class="fas fa-exclamation-triangle" style="color: #ff9800;"></i> ${successCount} succeeded, ${errorCount} failed`;
+            }
+
+            // Save state after generating all
+            saveTranslationState();
         }
 
         // Auto-translate to English
@@ -458,9 +517,75 @@
             }
         }
 
+        // Save current translation state to sessionStorage
+        function saveTranslationState() {
+            const state = {};
+            transcripts.forEach((t, index) => {
+                state[index] = {
+                    english: document.getElementById(`english-${index}`)?.value || '',
+                    final: document.getElementById(`final-${index}`)?.value || '',
+                    lang: document.getElementById(`lang-${index}`)?.value || 'es',
+                    prodTitle: document.getElementById(`prod-title-${index}`)?.value || '',
+                    prodDesc: document.getElementById(`prod-desc-${index}`)?.value || '',
+                    prodTags: document.getElementById(`prod-tags-${index}`)?.value || ''
+                };
+            });
+            sessionStorage.setItem('translationState', JSON.stringify(state));
+        }
+
+        // Restore translation state from sessionStorage
+        function restoreTranslationState() {
+            const saved = sessionStorage.getItem('translationState');
+            if (!saved) return false;
+
+            try {
+                const state = JSON.parse(saved);
+                let hasAnyTranslation = false;
+
+                transcripts.forEach((t, index) => {
+                    const data = state[index];
+                    if (data) {
+                        if (data.english) {
+                            document.getElementById(`english-${index}`).value = data.english;
+                            hasAnyTranslation = true;
+                        }
+                        if (data.final) {
+                            document.getElementById(`final-${index}`).value = data.final;
+                        }
+                        if (data.lang) {
+                            document.getElementById(`lang-${index}`).value = data.lang;
+                        }
+                        if (data.prodTitle) {
+                            document.getElementById(`prod-title-${index}`).value = data.prodTitle;
+                        }
+                        if (data.prodDesc) {
+                            document.getElementById(`prod-desc-${index}`).value = data.prodDesc;
+                        }
+                        if (data.prodTags) {
+                            document.getElementById(`prod-tags-${index}`).value = data.prodTags;
+                        }
+                    }
+                });
+
+                return hasAnyTranslation;
+            } catch (e) {
+                console.error('Failed to restore translation state:', e);
+                return false;
+            }
+        }
+
         // Auto-translate all transcripts on page load
         async function autoTranslateAll() {
             const status = document.getElementById('status');
+
+            // Check if translations already exist (e.g., returning from thumbnail editor)
+            const hasExistingTranslations = restoreTranslationState();
+            if (hasExistingTranslations) {
+                status.innerHTML = '<i class="fas fa-check-circle"></i> Translations restored. Edit the text as needed.';
+                status.className = 'translate-status success';
+                return; // Skip auto-translation
+            }
+
             status.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Auto-translating all transcripts...';
             status.className = 'translate-status loading';
 
@@ -481,6 +606,9 @@
                     await new Promise(r => setTimeout(r, 500));
                 }
             }
+
+            // Save the translation state after completing auto-translation
+            saveTranslationState();
 
             status.innerHTML = '<i class="fas fa-check-circle"></i> All translations complete. Edit the text as needed.';
             status.className = 'translate-status success';
