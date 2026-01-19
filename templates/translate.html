@@ -132,10 +132,24 @@
                                 <button class="btn btn-sm btn-primary translate-to-en-btn" data-index="${index}">
                                     <i class="fas fa-language"></i> Translate to English
                                 </button>
+                                <button class="btn btn-sm btn-ghost find-replace-btn" data-index="${index}" title="Find & Replace">
+                                    <i class="fas fa-exchange-alt"></i>
+                                </button>
                                 <button class="btn btn-sm btn-ghost copy-btn" data-target="english-${index}">
                                     <i class="far fa-copy"></i>
                                 </button>
                             </div>
+                        </div>
+                        <!-- Inline Find & Replace -->
+                        <div class="inline-find-replace" id="find-replace-${index}" style="display: none;">
+                            <div class="inline-fr-inputs">
+                                <input type="text" class="fr-find-input" data-index="${index}" placeholder="Find...">
+                                <input type="text" class="fr-replace-input" data-index="${index}" placeholder="Replace with...">
+                                <button class="btn btn-sm btn-primary fr-replace-btn" data-index="${index}">
+                                    <i class="fas fa-sync-alt"></i> Replace All
+                                </button>
+                            </div>
+                            <div class="fr-result" id="fr-result-${index}"></div>
                         </div>
                         <textarea id="english-${index}" class="step-textarea" placeholder="Click 'Translate to English' above. Edit text here to fix errors before translating to other languages."></textarea>
                     </div>
@@ -251,6 +265,7 @@
             });
 
             attachEventHandlers();
+            setupFindReplace();
 
             // Show the action buttons if transcripts exist
             if (transcripts.length > 0) {
@@ -808,6 +823,72 @@
 
         // Initial check
         setTimeout(updateArrowVisibility, 500);
+
+        // ===== INLINE FIND & REPLACE =====
+        function setupFindReplace() {
+            // Toggle Find/Replace visibility
+            document.querySelectorAll('.find-replace-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const index = btn.dataset.index;
+                    const panel = document.getElementById(`find-replace-${index}`);
+                    if (panel.style.display === 'none') {
+                        panel.style.display = 'block';
+                        panel.querySelector('.fr-find-input').focus();
+                    } else {
+                        panel.style.display = 'none';
+                    }
+                });
+            });
+
+            // Replace All functionality for each transcript
+            document.querySelectorAll('.fr-replace-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const index = btn.dataset.index;
+                    const findInput = document.querySelector(`.fr-find-input[data-index="${index}"]`);
+                    const replaceInput = document.querySelector(`.fr-replace-input[data-index="${index}"]`);
+                    const resultDiv = document.getElementById(`fr-result-${index}`);
+                    const textarea = document.getElementById(`english-${index}`);
+
+                    const findText = findInput.value;
+                    const replaceText = replaceInput.value;
+
+                    if (!findText.trim()) {
+                        resultDiv.innerHTML = '<span style="color: var(--error);"><i class="fas fa-exclamation-circle"></i> Enter text to find</span>';
+                        return;
+                    }
+
+                    if (!textarea || !textarea.value) {
+                        resultDiv.innerHTML = '<span style="color: var(--error);"><i class="fas fa-exclamation-circle"></i> No text to search</span>';
+                        return;
+                    }
+
+                    const originalContent = textarea.value;
+                    // Case insensitive replace
+                    const regex = new RegExp(escapeRegex(findText), 'gi');
+                    const matches = originalContent.match(regex);
+                    const count = matches ? matches.length : 0;
+
+                    if (count > 0) {
+                        textarea.value = originalContent.replace(regex, replaceText);
+                        resultDiv.innerHTML = `<span style="color: var(--success);"><i class="fas fa-check-circle"></i> Replaced ${count} occurrence${count !== 1 ? 's' : ''}</span>`;
+
+                        // Save translation state
+                        saveTranslationState();
+
+                        // Clear inputs after successful replace
+                        findInput.value = '';
+                        replaceInput.value = '';
+                    } else {
+                        resultDiv.innerHTML = '<span style="color: var(--error);"><i class="fas fa-info-circle"></i> No matches found</span>';
+                    }
+                });
+            });
+        }
+
+        // Helper function to escape special regex characters
+        function escapeRegex(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
     </script>
 </body>
 

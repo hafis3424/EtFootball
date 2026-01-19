@@ -1675,3 +1675,202 @@ input[type="range"]::-webkit-slider-thumb {
 .canvas-wrapper.rect-mode {
     cursor: crosshair;
 }
+
+/* ===== Find & Replace Panel ===== */
+.find-replace-panel {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+}
+
+.find-replace-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    user-select: none;
+}
+
+.find-replace-header:hover {
+    background: var(--card-hover);
+}
+
+.find-replace-header span {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.find-replace-header span i {
+    color: var(--accent);
+}
+
+.find-replace-header .toggle-icon {
+    color: var(--text-muted);
+    transition: transform 0.2s ease;
+}
+
+.find-replace-panel.collapsed .toggle-icon {
+    transform: rotate(-90deg);
+}
+
+.find-replace-body {
+    padding: 1.25rem;
+    border-top: 1px solid var(--border);
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.find-replace-panel.collapsed .find-replace-body {
+    display: none;
+}
+
+.find-replace-inputs {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.find-replace-row {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.find-replace-row label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.find-replace-row label i {
+    font-size: 0.75rem;
+}
+
+.find-replace-row input {
+    padding: 0.75rem 1rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.find-replace-row input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.find-replace-row input::placeholder {
+    color: #555;
+}
+
+.find-replace-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.case-sensitive-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.case-sensitive-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+}
+
+.match-count {
+    margin-top: 1rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.match-count.success {
+    color: var(--success);
+}
+
+.match-count.error {
+    color: var(--error);
+}
+
+@media (max-width: 600px) {
+    .find-replace-inputs {
+        flex-direction: column;
+    }
+
+    .find-replace-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
+/* ===== Inline Find & Replace (inside English Translation step) ===== */
+.inline-find-replace {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.inline-fr-inputs {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.inline-fr-inputs input {
+    flex: 1;
+    min-width: 120px;
+    padding: 0.5rem 0.75rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 0.85rem;
+    outline: none;
+    transition: border-color 0.2s ease;
+}
+
+.inline-fr-inputs input:focus {
+    border-color: var(--accent);
+}
+
+.inline-fr-inputs input::placeholder {
+    color: #555;
+}
+
+.fr-result {
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+}
+
+@media (max-width: 600px) {
+    .inline-fr-inputs {
+        flex-direction: column;
+    }
+
+    .inline-fr-inputs input {
+        width: 100%;
+    }
+}
