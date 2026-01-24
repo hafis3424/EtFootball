@@ -337,6 +337,10 @@
                 transcriptContent.appendChild(phase2Div);
 
                 document.getElementById('goto-phase2').addEventListener('click', () => {
+                    // Clear old translation state to prevent stale data from previous sessions
+                    sessionStorage.removeItem('translationState');
+                    sessionStorage.removeItem('thumbnailData');
+
                     // Store successful transcripts in sessionStorage
                     sessionStorage.setItem('transcripts', JSON.stringify(successResults));
                     window.location.href = '/translate';

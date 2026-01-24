@@ -532,11 +532,15 @@
             }
         }
 
-        // Save current translation state to sessionStorage
+        // Save current translation state to sessionStorage (keyed by video_id for safety)
         function saveTranslationState() {
-            const state = {};
+            const state = {
+                // Store video IDs to validate on restore
+                videoIds: transcripts.map(t => t.video_id),
+                translations: {}
+            };
             transcripts.forEach((t, index) => {
-                state[index] = {
+                state.translations[t.video_id] = {
                     english: document.getElementById(`english-${index}`)?.value || '',
                     final: document.getElementById(`final-${index}`)?.value || '',
                     lang: document.getElementById(`lang-${index}`)?.value || 'es',
@@ -555,10 +559,27 @@
 
             try {
                 const state = JSON.parse(saved);
+
+                // Validate that the saved state matches current transcripts
+                const currentVideoIds = transcripts.map(t => t.video_id);
+                const savedVideoIds = state.videoIds || [];
+
+                // Check if video IDs match (same videos in same order)
+                const idsMatch = currentVideoIds.length === savedVideoIds.length &&
+                    currentVideoIds.every((id, idx) => id === savedVideoIds[idx]);
+
+                if (!idsMatch) {
+                    // Clear stale state if videos don't match
+                    console.log('Video IDs do not match saved state, clearing stale data');
+                    sessionStorage.removeItem('translationState');
+                    return false;
+                }
+
                 let hasAnyTranslation = false;
 
                 transcripts.forEach((t, index) => {
-                    const data = state[index];
+                    // Look up by video_id (new format) or fall back to index (legacy format)
+                    const data = state.translations?.[t.video_id] || state[index];
                     if (data) {
                         if (data.english) {
                             document.getElementById(`english-${index}`).value = data.english;
