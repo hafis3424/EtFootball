@@ -805,8 +805,12 @@
                 // Resizing an element
                 if (isResizingElement && selectedElementIndex >= 0 && resizeStart) {
                     const elem = drawnElements[selectedElementIndex];
-                    const deltaX = currentX - resizeStart.x;
-                    const deltaY = currentY - resizeStart.y;
+
+                    // Clamp coordinates to canvas boundaries to allow snapping to edges
+                    const clampedX = Math.max(0, Math.min(canvas.width, currentX));
+                    const clampedY = Math.max(0, Math.min(canvas.height, currentY));
+                    const deltaX = clampedX - resizeStart.x;
+                    const deltaY = clampedY - resizeStart.y;
 
                     if (elem.type === 'rect' || elem.type === 'textbox') {
                         // Handle all 8 resize handles
@@ -814,31 +818,52 @@
 
                         // Corner handles
                         if (resizeHandleType === 'se') {
+                            // Right edge: allow overflow (no clamping)
                             elem.width = Math.max(minSize, resizeStart.elemW + deltaX);
-                            elem.height = Math.max(minSize, resizeStart.elemH + deltaY);
+                            // Bottom edge: clamp to canvas height
+                            const newBottom = Math.min(canvas.height, resizeStart.elemY + resizeStart.elemH + deltaY);
+                            elem.height = Math.max(minSize, newBottom - elem.y);
                         } else if (resizeHandleType === 'sw') {
+                            // Left edge: allow overflow (no clamping)
                             elem.x = resizeStart.elemX + deltaX;
                             elem.width = Math.max(minSize, resizeStart.elemW - deltaX);
-                            elem.height = Math.max(minSize, resizeStart.elemH + deltaY);
+                            // Bottom edge: clamp to canvas height
+                            const newBottom = Math.min(canvas.height, resizeStart.elemY + resizeStart.elemH + deltaY);
+                            elem.height = Math.max(minSize, newBottom - elem.y);
                         } else if (resizeHandleType === 'ne') {
-                            elem.y = resizeStart.elemY + deltaY;
+                            // Top edge: clamp to 0
+                            const newY = Math.max(0, resizeStart.elemY + deltaY);
+                            const bottomEdge = resizeStart.elemY + resizeStart.elemH;
+                            elem.y = newY;
+                            elem.height = Math.max(minSize, bottomEdge - newY);
+                            // Right edge: allow overflow (no clamping)
                             elem.width = Math.max(minSize, resizeStart.elemW + deltaX);
-                            elem.height = Math.max(minSize, resizeStart.elemH - deltaY);
                         } else if (resizeHandleType === 'nw') {
+                            // Left edge: allow overflow (no clamping)
                             elem.x = resizeStart.elemX + deltaX;
-                            elem.y = resizeStart.elemY + deltaY;
                             elem.width = Math.max(minSize, resizeStart.elemW - deltaX);
-                            elem.height = Math.max(minSize, resizeStart.elemH - deltaY);
+                            // Top edge: clamp to 0
+                            const newY = Math.max(0, resizeStart.elemY + deltaY);
+                            const bottomEdge = resizeStart.elemY + resizeStart.elemH;
+                            elem.y = newY;
+                            elem.height = Math.max(minSize, bottomEdge - newY);
                         }
                         // Side handles (horizontal/vertical only)
                         else if (resizeHandleType === 'n') {
-                            elem.y = resizeStart.elemY + deltaY;
-                            elem.height = Math.max(minSize, resizeStart.elemH - deltaY);
+                            // Top edge: clamp to 0
+                            const newY = Math.max(0, resizeStart.elemY + deltaY);
+                            const bottomEdge = resizeStart.elemY + resizeStart.elemH;
+                            elem.y = newY;
+                            elem.height = Math.max(minSize, bottomEdge - newY);
                         } else if (resizeHandleType === 's') {
-                            elem.height = Math.max(minSize, resizeStart.elemH + deltaY);
+                            // Bottom edge: clamp to canvas height
+                            const newBottom = Math.min(canvas.height, resizeStart.elemY + resizeStart.elemH + deltaY);
+                            elem.height = Math.max(minSize, newBottom - elem.y);
                         } else if (resizeHandleType === 'e') {
+                            // Right edge: allow overflow (no clamping)
                             elem.width = Math.max(minSize, resizeStart.elemW + deltaX);
                         } else if (resizeHandleType === 'w') {
+                            // Left edge: allow overflow (no clamping)
                             elem.x = resizeStart.elemX + deltaX;
                             elem.width = Math.max(minSize, resizeStart.elemW - deltaX);
                         }
@@ -855,6 +880,19 @@
                                 const baseFontSize = resizeStart.fontSize || elem.fontSize;
                                 elem.fontSize = Math.max(12, Math.min(200, Math.round(baseFontSize * heightRatio)));
                             }
+                        }
+
+                        // Clamp to canvas boundaries
+                        if (elem.x < 0) { elem.width += elem.x; elem.x = 0; }
+                        if (elem.y < 0) { elem.height += elem.y; elem.y = 0; }
+                        if (elem.x + elem.width > canvas.width) { elem.width = canvas.width - elem.x; }
+                        if (elem.y + elem.height > canvas.height) { elem.height = canvas.height - elem.y; }
+
+                        // Update textbox dimensions after clamping
+                        if (elem.type === 'textbox') {
+                            elem._width = elem.width;
+                            elem._height = elem.height;
+                            elem.maxWidth = elem.width - 40;
                         }
                     } else if (elem.type === 'text') {
                         // For text, resize means change font size
@@ -1036,9 +1074,17 @@
             });
 
             document.addEventListener('mouseup', () => {
+                // Reset selection box drag/resize flags
                 isDragging = false;
                 isResizing = false;
                 resizeHandle = null;
+
+                // Reset element drag/resize flags (fixes bug when mouse leaves canvas during resize)
+                isResizingElement = false;
+                isDraggingElement = false;
+                resizeHandleType = null;
+                resizeStart = null;
+                elementDragStart = null;
             });
 
             // Download button
@@ -1281,7 +1327,7 @@
             ctx.setLineDash([]);
 
             // Draw 8 handles (CorelDRAW style: white fill, black border)
-            const handleSize = 7;
+            const handleSize = 18;
 
             // All 8 handle positions
             const handles = [
@@ -1299,7 +1345,7 @@
             handles.forEach(([hx, hy]) => {
                 ctx.fillStyle = '#FFFFFF';
                 ctx.strokeStyle = '#000000';
-                ctx.lineWidth = 1;
+                ctx.lineWidth = 2;
                 ctx.fillRect(hx - handleSize / 2, hy - handleSize / 2, handleSize, handleSize);
                 ctx.strokeRect(hx - handleSize / 2, hy - handleSize / 2, handleSize, handleSize);
             });
@@ -1359,7 +1405,7 @@
                 w = elem._width || 100; h = elem._height || 50;
             }
 
-            const handleSize = 12; // Larger for easier clicking
+            const handleSize = 18; // Match visual handle size
 
             // All 8 handles
             const handles = {
