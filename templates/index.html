@@ -311,12 +311,16 @@
                     item.innerHTML = `
                         <div class="transcript-header error">
                             <h3>${result.title || result.video_id}</h3>
+                            <button class="btn btn-sm btn-primary retry-btn" data-video-id="${result.video_id}" data-title="${result.title || result.video_id}">
+                                <i class="fas fa-redo"></i> Retry
+                            </button>
                         </div>
                         <div class="transcript-error">
                             <i class="fas fa-exclamation-triangle"></i>
                             ${result.error}
                         </div>
                     `;
+                    item.dataset.videoId = result.video_id;
                 }
 
                 transcriptContent.appendChild(item);
@@ -368,6 +372,86 @@
                     a.download = `${title}.txt`;
                     a.click();
                     URL.revokeObjectURL(url);
+                });
+            });
+
+            // Attach retry handlers for failed transcripts
+            document.querySelectorAll('.retry-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const videoId = btn.dataset.videoId;
+                    const originalTitle = btn.dataset.title;
+                    const item = btn.closest('.transcript-item');
+
+                    // Show loading state
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Retrying...';
+
+                    try {
+                        const res = await fetch('/api/transcript', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ video_ids: [videoId] })
+                        });
+
+                        const data = await res.json();
+                        const result = data.results[0];
+
+                        if (result.success) {
+                            // Replace error UI with success UI
+                            item.innerHTML = `
+                                <div class="transcript-header">
+                                    <h3>${result.title}</h3>
+                                    <div class="transcript-actions">
+                                        <button class="btn btn-sm btn-ghost copy-btn" data-text="${encodeURIComponent(result.transcript)}">
+                                            <i class="far fa-copy"></i> Copy
+                                        </button>
+                                        <button class="btn btn-sm btn-ghost download-btn" data-title="${result.title}" data-text="${encodeURIComponent(result.transcript)}">
+                                            <i class="fas fa-download"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="transcript-text">${result.transcript}</div>
+                            `;
+
+                            // Attach copy/download handlers to new buttons
+                            item.querySelector('.copy-btn').addEventListener('click', function () {
+                                const text = decodeURIComponent(this.dataset.text);
+                                navigator.clipboard.writeText(text);
+                                this.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                                setTimeout(() => this.innerHTML = '<i class="far fa-copy"></i> Copy', 2000);
+                            });
+
+                            item.querySelector('.download-btn').addEventListener('click', function () {
+                                const text = decodeURIComponent(this.dataset.text);
+                                const title = this.dataset.title.replace(/[^a-z0-9]/gi, '_');
+                                const blob = new Blob([text], { type: 'text/plain' });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `${title}.txt`;
+                                a.click();
+                                URL.revokeObjectURL(url);
+                            });
+
+                            // Update global results
+                            const idx = window.transcriptResults.findIndex(r => r.video_id === videoId);
+                            if (idx !== -1) {
+                                window.transcriptResults[idx] = result;
+                            }
+                        } else {
+                            // Update error message but keep retry button
+                            btn.disabled = false;
+                            btn.innerHTML = '<i class="fas fa-redo"></i> Retry';
+                            item.querySelector('.transcript-error').innerHTML = `
+                                <i class="fas fa-exclamation-triangle"></i>
+                                ${result.error}
+                            `;
+                        }
+                    } catch (err) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fas fa-redo"></i> Retry';
+                        console.error('Retry failed:', err);
+                    }
                 });
             });
         }
