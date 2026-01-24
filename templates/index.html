@@ -326,9 +326,9 @@
                 transcriptContent.appendChild(item);
             });
 
-            // Add Phase 2 button at the bottom
-            const successResults = results.filter(r => r.success);
-            if (successResults.length > 0) {
+            // Add Phase 2 button at the bottom (show if ANY results exist, we'll filter at click time)
+            const hasAnySuccess = results.some(r => r.success);
+            if (hasAnySuccess) {
                 const phase2Div = document.createElement('div');
                 phase2Div.className = 'phase2-button-container';
                 phase2Div.innerHTML = `
@@ -345,8 +345,16 @@
                     sessionStorage.removeItem('translationState');
                     sessionStorage.removeItem('thumbnailData');
 
+                    // Get the LATEST successful results (includes retried ones)
+                    const latestSuccessResults = window.transcriptResults.filter(r => r.success);
+
+                    if (latestSuccessResults.length === 0) {
+                        alert('No successful transcripts to proceed with.');
+                        return;
+                    }
+
                     // Store successful transcripts in sessionStorage
-                    sessionStorage.setItem('transcripts', JSON.stringify(successResults));
+                    sessionStorage.setItem('transcripts', JSON.stringify(latestSuccessResults));
                     window.location.href = '/translate';
                 });
             }
