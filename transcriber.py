@@ -29,11 +29,15 @@ class TranscriptExtractor:
         """Call the player endpoint to get caption track URLs."""
         endpoint = f"https://www.youtube.com/youtubei/v1/player?key={api_key}"
         
+        # Use ANDROID client - WEB client is now blocked by YouTube (as of Jan 2026)
         payload = {
             "context": {
                 "client": {
-                    "clientName": "WEB",
-                    "clientVersion": "2.20251031.00.00"
+                    "clientName": "ANDROID",
+                    "clientVersion": "19.09.37",
+                    "androidSdkVersion": 30,
+                    "hl": "en",
+                    "gl": "US"
                 }
             },
             "videoId": video_id
@@ -56,8 +60,11 @@ class TranscriptExtractor:
     
     def _fetch_transcript(self, track_url):
         """Fetch and parse the transcript JSON."""
-        # Add fmt=json3 to get JSON format
-        url = f"{track_url}&fmt=json3"
+        # Replace fmt parameter to get JSON format (URL may already have fmt=srv3)
+        if 'fmt=' in track_url:
+            url = re.sub(r'fmt=[^&]+', 'fmt=json3', track_url)
+        else:
+            url = f"{track_url}&fmt=json3"
         response = self.session.get(url)
         response.raise_for_status()
         
