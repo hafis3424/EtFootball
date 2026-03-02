@@ -282,6 +282,12 @@
             }
         });
 
+        // Helper to escape HTML special characters for safe attribute embedding
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
         function renderTranscripts(results) {
             transcriptContent.innerHTML = '';
 
@@ -292,32 +298,36 @@
                 const item = document.createElement('div');
                 item.className = 'transcript-item';
 
+                const safeTitle = escapeHtml(result.title);
+                const safeTranscript = encodeURIComponent(result.transcript || '');
+
                 if (result.success) {
                     item.innerHTML = `
                         <div class="transcript-header">
-                            <h3>${result.title}</h3>
+                            <h3>${safeTitle}</h3>
                             <div class="transcript-actions">
-                                <button class="btn btn-sm btn-ghost copy-btn" data-text="${encodeURIComponent(result.transcript)}">
+                                <button class="btn btn-sm btn-ghost copy-btn" data-text="${safeTranscript}">
                                     <i class="far fa-copy"></i> Copy
                                 </button>
-                                <button class="btn btn-sm btn-ghost download-btn" data-title="${result.title}" data-text="${encodeURIComponent(result.transcript)}">
+                                <button class="btn btn-sm btn-ghost download-btn" data-title="${safeTitle}" data-text="${safeTranscript}">
                                     <i class="fas fa-download"></i>
                                 </button>
                             </div>
                         </div>
-                        <div class="transcript-text">${result.transcript}</div>
+                        <div class="transcript-text">${escapeHtml(result.transcript)}</div>
                     `;
                 } else {
+                    const errorTitle = safeTitle || escapeHtml(result.video_id);
                     item.innerHTML = `
                         <div class="transcript-header error">
-                            <h3>${result.title || result.video_id}</h3>
-                            <button class="btn btn-sm btn-primary retry-btn" data-video-id="${result.video_id}" data-title="${result.title || result.video_id}">
+                            <h3>${errorTitle}</h3>
+                            <button class="btn btn-sm btn-primary retry-btn" data-video-id="${escapeHtml(result.video_id)}" data-title="${errorTitle}">
                                 <i class="fas fa-redo"></i> Retry
                             </button>
                         </div>
                         <div class="transcript-error">
                             <i class="fas fa-exclamation-triangle"></i>
-                            ${result.error}
+                            ${escapeHtml(result.error)}
                         </div>
                     `;
                     item.dataset.videoId = result.video_id;
@@ -406,19 +416,21 @@
 
                         if (result.success) {
                             // Replace error UI with success UI
+                            const retryTitle = escapeHtml(result.title);
+                            const retryTranscript = encodeURIComponent(result.transcript || '');
                             item.innerHTML = `
                                 <div class="transcript-header">
-                                    <h3>${result.title}</h3>
+                                    <h3>${retryTitle}</h3>
                                     <div class="transcript-actions">
-                                        <button class="btn btn-sm btn-ghost copy-btn" data-text="${encodeURIComponent(result.transcript)}">
+                                        <button class="btn btn-sm btn-ghost copy-btn" data-text="${retryTranscript}">
                                             <i class="far fa-copy"></i> Copy
                                         </button>
-                                        <button class="btn btn-sm btn-ghost download-btn" data-title="${result.title}" data-text="${encodeURIComponent(result.transcript)}">
+                                        <button class="btn btn-sm btn-ghost download-btn" data-title="${retryTitle}" data-text="${retryTranscript}">
                                             <i class="fas fa-download"></i>
                                         </button>
                                     </div>
                                 </div>
-                                <div class="transcript-text">${result.transcript}</div>
+                                <div class="transcript-text">${escapeHtml(result.transcript)}</div>
                             `;
 
                             // Attach copy/download handlers to new buttons
@@ -452,7 +464,7 @@
                             btn.innerHTML = '<i class="fas fa-redo"></i> Retry';
                             item.querySelector('.transcript-error').innerHTML = `
                                 <i class="fas fa-exclamation-triangle"></i>
-                                ${result.error}
+                                ${escapeHtml(result.error)}
                             `;
                         }
                     } catch (err) {
