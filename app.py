@@ -1,9 +1,14 @@
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, send_file
 from youtube_api import YouTubeChannel
 from transcriber import TranscriptExtractor
 from translator import TranslationService
+import voice_generator
+import video_generator
 import config
 from flask_cors import CORS
+import threading
+import uuid
+import os
 
 app = Flask(__name__)
 CORS(app)
@@ -34,6 +39,11 @@ def translate_page():
 @app.route('/thumbnail')
 def thumbnail_page():
     return render_template('thumbnail.html')
+
+
+@app.route('/studio')
+def studio_page():
+    return render_template('studio.html')
 
 
 @app.route('/api/channel/videos', methods=['GET'])
@@ -437,6 +447,156 @@ def auto_analyze_thumbnail():
         return jsonify({'success': False, 'error': str(e), 'traceback': traceback.format_exc()})
 
 
+# ===== PHASE 4: VOICEOVER & VIDEO ENDPOINTS =====
+
+@app.route('/api/voices', methods=['GET'])
+def get_voices():
+    """Get all available edge-tts voices, organized by language."""
+    try:
+        voices = voice_generator.get_voices_sync()
+        total_voices, total_languages = voice_generator.get_voice_count()
+        return jsonify({
+            'success': True,
+            'voices': voices,
+            'total_voices': total_voices,
+            'total_languages': total_languages,
+            'recommended': voice_generator.RECOMMENDED_VOICES
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/voice/preview', methods=['POST'])
+def preview_voice():
+    """Generate a short preview audio clip."""
+    data = request.json
+    text = data.get('text', 'Hola, esta es una vista previa de la voz seleccionada para tu video de fútbol.')
+    voice = data.get('voice', voice_generator.DEFAULT_VOICE)
+    rate = data.get('rate', voice_generator.DEFAULT_RATE)
+    pitch = data.get('pitch', voice_generator.DEFAULT_PITCH)
+    
+    try:
+        result = voice_generator.generate_preview(text, voice, rate, pitch)
+        if result['success']:
+            return send_file(
+                result['output_path'],
+                mimetype='audio/mpeg',
+                as_attachment=False
+            )
+        return jsonify(result), 500
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/voiceover/generate', methods=['POST'])
+def generate_voiceover():
+    """Start voiceover generation (background task)."""
+    data = request.json
+    text = data.get('text', '')
+    voice = data.get('voice', voice_generator.DEFAULT_VOICE)
+    rate = data.get('rate', voice_generator.DEFAULT_RATE)
+    pitch = data.get('pitch', voice_generator.DEFAULT_PITCH)
+    output_name = data.get('output_name', None)
+    
+    if not text:
+        return jsonify({'success': False, 'error': 'No text provided'}), 400
+    
+    task_id = str(uuid.uuid4())
+    
+    def run_generation():
+        voice_generator.generate_voiceover(text, voice, rate, pitch, output_name, task_id)
+    
+    thread = threading.Thread(target=run_generation, daemon=True)
+    thread.start()
+    
+    return jsonify({
+        'success': True,
+        'task_id': task_id,
+        'message': 'Voiceover generation started'
+    })
+
+
+@app.route('/api/voiceover/status/<task_id>', methods=['GET'])
+def voiceover_status(task_id):
+    """Get voiceover generation progress."""
+    progress = voice_generator.get_progress(task_id)
+    return jsonify(progress)
+
+
+@app.route('/api/voiceover/download/<filename>', methods=['GET'])
+def download_voiceover(filename):
+    """Download generated voiceover MP3."""
+    filepath = os.path.join(voice_generator.OUTPUT_DIR, filename)
+    if os.path.exists(filepath):
+        return send_file(filepath, mimetype='audio/mpeg', as_attachment=True)
+    return jsonify({'error': 'File not found'}), 404
+
+
+@app.route('/api/voiceover/stream/<filename>', methods=['GET'])
+def stream_voiceover(filename):
+    """Stream voiceover audio for playback."""
+    filepath = os.path.join(voice_generator.OUTPUT_DIR, filename)
+    if os.path.exists(filepath):
+        return send_file(filepath, mimetype='audio/mpeg')
+    return jsonify({'error': 'File not found'}), 404
+
+
+@app.route('/api/video/create', methods=['POST'])
+def create_video():
+    """Start video creation (background task)."""
+    data = request.json
+    image_base64 = data.get('image', '')
+    audio_filename = data.get('audio_filename', '')
+    output_name = data.get('output_name', None)
+    
+    if not image_base64:
+        return jsonify({'success': False, 'error': 'No image provided'}), 400
+    if not audio_filename:
+        return jsonify({'success': False, 'error': 'No audio file specified'}), 400
+    
+    audio_path = os.path.join(voice_generator.OUTPUT_DIR, audio_filename)
+    if not os.path.exists(audio_path):
+        return jsonify({'success': False, 'error': 'Audio file not found'}), 404
+    
+    task_id = str(uuid.uuid4())
+    
+    def run_creation():
+        video_generator.create_video(image_base64, audio_path, output_name, task_id)
+    
+    thread = threading.Thread(target=run_creation, daemon=True)
+    thread.start()
+    
+    return jsonify({
+        'success': True,
+        'task_id': task_id,
+        'message': 'Video creation started'
+    })
+
+
+@app.route('/api/video/status/<task_id>', methods=['GET'])
+def video_status(task_id):
+    """Get video creation progress."""
+    progress = video_generator.get_progress(task_id)
+    return jsonify(progress)
+
+
+@app.route('/api/video/download/<filename>', methods=['GET'])
+def download_video(filename):
+    """Download generated MP4 video."""
+    filepath = os.path.join(video_generator.OUTPUT_DIR, filename)
+    if os.path.exists(filepath):
+        return send_file(filepath, mimetype='video/mp4', as_attachment=True)
+    return jsonify({'error': 'File not found'}), 404
+
+
+@app.route('/api/video/stream/<filename>', methods=['GET'])
+def stream_video(filename):
+    """Stream video for preview playback."""
+    filepath = os.path.join(video_generator.OUTPUT_DIR, filename)
+    if os.path.exists(filepath):
+        return send_file(filepath, mimetype='video/mp4')
+    return jsonify({'error': 'File not found'}), 404
+
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
-

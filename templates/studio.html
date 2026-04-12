@@ -1,0 +1,1953 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RafLocalizer - Studio</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* ===== Studio Layout ===== */
+        .studio-container {
+            display: grid;
+            grid-template-columns: 260px 1fr 320px;
+            margin-top: 70px;
+            min-height: calc(100vh - 70px);
+            gap: 0;
+        }
+
+        /* ===== Left Panel — Video Queue ===== */
+        .studio-queue {
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .queue-header {
+            padding: 1.25rem;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .queue-header h3 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .queue-header h3 i { color: var(--accent); }
+
+        .queue-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.5rem;
+        }
+
+        .queue-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.65rem 0.75rem;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-bottom: 0.25rem;
+        }
+
+        .queue-item:hover {
+            background: var(--card-hover);
+        }
+
+        .queue-item.active {
+            background: rgba(255, 59, 92, 0.12);
+            border: 1px solid rgba(255, 59, 92, 0.3);
+        }
+
+        .queue-item-thumb {
+            width: 64px;
+            height: 36px;
+            object-fit: cover;
+            border-radius: 6px;
+            flex-shrink: 0;
+        }
+
+        .queue-item-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .queue-item-title {
+            font-size: 0.75rem;
+            font-weight: 500;
+            line-height: 1.3;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .queue-item-status {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            margin-top: 3px;
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .queue-item-status .status-icon {
+            font-size: 0.7rem;
+        }
+
+        .status-pending { color: var(--text-muted); }
+        .status-audio-done { color: #f59e0b; }
+        .status-video-done { color: var(--success); }
+
+        /* ===== Center Panel — Preview & Script ===== */
+        .studio-center {
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            padding: 1.5rem 2rem;
+        }
+
+        .preview-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .preview-section h3,
+        .script-section h3 {
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-muted);
+        }
+
+        .preview-section h3 i,
+        .script-section h3 i {
+            color: var(--accent);
+        }
+
+        .thumb-preview-container {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .thumb-preview-container img {
+            width: 100%;
+            display: block;
+            border-radius: 12px;
+        }
+
+        .preview-placeholder {
+            width: 100%;
+            aspect-ratio: 16/9;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            gap: 0.5rem;
+        }
+
+        .preview-placeholder i {
+            font-size: 3rem;
+            opacity: 0.3;
+        }
+
+        /* Audio Player */
+        .audio-player-section {
+            margin-top: 1rem;
+        }
+
+        .audio-player-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
+            display: none;
+        }
+
+        .audio-player-card.visible {
+            display: block;
+        }
+
+        .audio-player-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+        }
+
+        .audio-player-label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--accent);
+        }
+
+        .audio-player-duration {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .audio-player-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .audio-play-btn {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--accent), #ff6b8a);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: transform 0.2s ease;
+        }
+
+        .audio-play-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .audio-progress-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .audio-progress-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .audio-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), #ff6b8a);
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+
+        .audio-time-display {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+        }
+
+        /* Video Player */
+        .video-player-section {
+            margin-top: 1rem;
+            display: none;
+        }
+
+        .video-player-section.visible {
+            display: block;
+        }
+
+        .video-player-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .video-player-card video {
+            width: 100%;
+            display: block;
+        }
+
+        .video-player-info {
+            padding: 0.75rem 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .video-player-label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--success);
+        }
+
+        .video-download-btn {
+            background: linear-gradient(135deg, var(--success), #34d399);
+            border: none;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: transform 0.2s ease;
+        }
+
+        .video-download-btn:hover {
+            transform: translateY(-1px);
+        }
+
+        /* Script Section */
+        .script-section {
+            margin-top: 1.5rem;
+        }
+
+        .script-textarea {
+            width: 100%;
+            min-height: 200px;
+            padding: 1rem;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            line-height: 1.7;
+            resize: vertical;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+
+        .script-textarea:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        .script-char-count {
+            text-align: right;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-top: 0.35rem;
+        }
+
+        /* ===== Right Panel — Voice Controls ===== */
+        .studio-controls {
+            background: var(--bg-secondary);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .controls-section {
+            padding: 1.25rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .controls-section h3 {
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .controls-section h3 i {
+            color: var(--accent);
+            font-size: 0.9rem;
+        }
+
+        /* Voice Selector */
+        .voice-select-group {
+            margin-bottom: 0.85rem;
+        }
+
+        .voice-select-group label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            display: block;
+            margin-bottom: 0.35rem;
+        }
+
+        .voice-select-group select {
+            width: 100%;
+            padding: 0.6rem 0.75rem;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 0.8rem;
+            outline: none;
+            transition: border-color 0.2s ease;
+            cursor: pointer;
+        }
+
+        .voice-select-group select:focus {
+            border-color: var(--accent);
+        }
+
+        .voice-info {
+            margin-top: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            background: rgba(255, 59, 92, 0.08);
+            border: 1px solid rgba(255, 59, 92, 0.15);
+            border-radius: 8px;
+            display: none;
+        }
+
+        .voice-info.visible {
+            display: block;
+        }
+
+        .voice-info-text {
+            font-size: 0.7rem;
+            color: #ff8aa0;
+        }
+
+        .voice-info-text i {
+            color: #f59e0b;
+            margin-right: 0.25rem;
+        }
+
+        /* Speed Controls */
+        .speed-presets {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .speed-preset-btn {
+            flex: 1;
+            padding: 0.5rem;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-muted);
+            font-size: 0.7rem;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s ease;
+        }
+
+        .speed-preset-btn:hover {
+            background: var(--card-hover);
+            color: var(--text);
+        }
+
+        .speed-preset-btn.active {
+            background: rgba(255, 59, 92, 0.15);
+            border-color: rgba(255, 59, 92, 0.4);
+            color: var(--accent);
+        }
+
+        .slider-group {
+            margin-bottom: 0.75rem;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.35rem;
+        }
+
+        .slider-label label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+
+        .slider-value {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--accent);
+            background: rgba(255, 59, 92, 0.1);
+            padding: 0.15rem 0.5rem;
+            border-radius: 6px;
+        }
+
+        .studio-slider {
+            width: 100%;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            background: var(--border);
+            border-radius: 3px;
+            outline: none;
+        }
+
+        .studio-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--accent);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.15s ease;
+        }
+
+        .studio-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        /* Preview Voice Button */
+        .preview-voice-btn {
+            width: 100%;
+            padding: 0.65rem;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text);
+            font-size: 0.82rem;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
+        }
+
+        .preview-voice-btn:hover {
+            background: var(--card-hover);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .preview-voice-btn i {
+            color: var(--accent);
+        }
+
+        /* Action Buttons */
+        .studio-action-btns {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .studio-generate-btn {
+            width: 100%;
+            padding: 0.85rem;
+            background: linear-gradient(135deg, var(--accent), #ff6b8a);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px var(--accent-glow);
+        }
+
+        .studio-generate-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px var(--accent-glow);
+        }
+
+        .studio-generate-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .studio-video-btn {
+            width: 100%;
+            padding: 0.85rem;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+
+        .studio-video-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(99, 102, 241, 0.4);
+        }
+
+        .studio-video-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .studio-download-btn {
+            width: 100%;
+            padding: 0.85rem;
+            background: linear-gradient(135deg, var(--success), #34d399);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
+            display: none;
+        }
+
+        .studio-download-btn.visible {
+            display: flex;
+        }
+
+        .studio-download-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        /* Generate All Button */
+        .studio-generate-all-btn {
+            width: 100%;
+            padding: 0.85rem;
+            background: linear-gradient(135deg, #f97316, #fb923c);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(249, 115, 22, 0.3);
+        }
+
+        .studio-generate-all-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(249, 115, 22, 0.4);
+        }
+
+        .studio-generate-all-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .studio-cancel-btn {
+            width: 100%;
+            padding: 0.65rem;
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 10px;
+            color: #ef4444;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+            transition: all 0.2s ease;
+        }
+
+        .studio-cancel-btn.visible {
+            display: flex;
+        }
+
+        .studio-cancel-btn:hover {
+            background: rgba(239, 68, 68, 0.25);
+        }
+
+        /* Batch Progress */
+        .batch-progress {
+            margin-top: 0.75rem;
+            display: none;
+            background: rgba(249, 115, 22, 0.05);
+            border: 1px solid rgba(249, 115, 22, 0.15);
+            border-radius: 10px;
+            padding: 0.75rem;
+        }
+
+        .batch-progress.visible {
+            display: block;
+        }
+
+        .batch-progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .batch-progress-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #f97316;
+        }
+
+        .batch-progress-count {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text);
+            background: rgba(249, 115, 22, 0.15);
+            padding: 0.15rem 0.5rem;
+            border-radius: 6px;
+        }
+
+        .batch-progress .progress-bar-outer {
+            height: 10px;
+            border-radius: 5px;
+        }
+
+        .batch-bar {
+            background: linear-gradient(90deg, #f97316, #fb923c) !important;
+        }
+
+        .batch-progress-status {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-top: 0.4rem;
+            text-align: center;
+        }
+
+        /* Progress bar */
+        .generation-progress {
+            margin-top: 0.75rem;
+            display: none;
+        }
+
+        .generation-progress.visible {
+            display: block;
+        }
+
+        .progress-bar-outer {
+            width: 100%;
+            height: 8px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-bar-inner {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), #ff6b8a);
+            border-radius: 4px;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-top: 0.35rem;
+            text-align: center;
+        }
+
+        /* Phase 4 badge */
+        .phase4-badge {
+            background: rgba(249, 115, 22, 0.15);
+            color: #f97316;
+            border: 1px solid rgba(249, 115, 22, 0.3);
+        }
+
+        /* Voice Stats */
+        .voice-stats {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-align: center;
+            margin-top: 0.5rem;
+        }
+
+        /* Recommended badge */
+        .rec-badge {
+            display: inline-block;
+            background: rgba(249, 115, 22, 0.15);
+            color: #f97316;
+            font-size: 0.6rem;
+            padding: 0.1rem 0.4rem;
+            border-radius: 4px;
+            font-weight: 600;
+            margin-left: 0.5rem;
+        }
+
+        /* Studio empty state */
+        .studio-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-muted);
+            gap: 1rem;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .studio-empty i {
+            font-size: 4rem;
+            opacity: 0.2;
+        }
+
+        .studio-empty p {
+            font-size: 0.9rem;
+        }
+
+        .studio-empty a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        .studio-empty a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 1200px) {
+            .studio-container {
+                grid-template-columns: 220px 1fr 280px;
+            }
+        }
+
+        @media (max-width: 900px) {
+            .studio-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr auto;
+            }
+            .studio-queue {
+                max-height: 200px;
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+            }
+            .queue-list {
+                display: flex;
+                overflow-x: auto;
+                overflow-y: hidden;
+                padding: 0.5rem;
+                gap: 0.5rem;
+            }
+            .queue-item {
+                flex-shrink: 0;
+                width: 200px;
+            }
+            .studio-controls {
+                border-left: none;
+                border-top: 1px solid var(--border);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="logo">
+            <a href="/"
+                style="display: flex; align-items: center; gap: 0.75rem; text-decoration: none; color: inherit;">
+                <div class="logo-icon">
+                    <i class="fab fa-youtube"></i>
+                </div>
+                <span class="logo-text">Raf<span class="accent">Localizer</span></span>
+            </a>
+        </div>
+        <div class="header-actions">
+            <a href="/thumbnail" class="btn btn-ghost">
+                <i class="fas fa-arrow-left"></i> Back to Thumbnails
+            </a>
+            <span class="phase-badge phase4-badge"><i class="fas fa-film"></i> PHASE 4: STUDIO</span>
+        </div>
+    </header>
+
+    <!-- Studio Layout -->
+    <div class="studio-container">
+        <!-- Left Panel: Video Queue -->
+        <div class="studio-queue">
+            <div class="queue-header">
+                <h3><i class="fas fa-list"></i> Video Queue</h3>
+            </div>
+            <div class="queue-list" id="queue-list">
+                <!-- Queue items injected here -->
+            </div>
+        </div>
+
+        <!-- Center Panel: Preview & Script -->
+        <div class="studio-center" id="studio-center">
+            <!-- Thumbnail Preview -->
+            <div class="preview-section">
+                <h3><i class="fas fa-image"></i> Thumbnail Preview</h3>
+                <div class="thumb-preview-container" id="thumb-preview">
+                    <div class="preview-placeholder" id="preview-placeholder">
+                        <i class="fas fa-image"></i>
+                        <p>No video selected</p>
+                    </div>
+                    <img id="preview-image" style="display: none;" alt="Thumbnail Preview">
+                </div>
+
+                <!-- Audio Player -->
+                <div class="audio-player-section">
+                    <div class="audio-player-card" id="audio-player-card">
+                        <div class="audio-player-header">
+                            <span class="audio-player-label"><i class="fas fa-headphones"></i> Voiceover</span>
+                            <span class="audio-player-duration" id="audio-duration-display">0:00</span>
+                        </div>
+                        <div class="audio-player-controls">
+                            <button class="audio-play-btn" id="audio-play-btn">
+                                <i class="fas fa-play"></i>
+                            </button>
+                            <div class="audio-progress-container">
+                                <div class="audio-progress-bar" id="audio-progress-bar">
+                                    <div class="audio-progress-fill" id="audio-progress-fill"></div>
+                                </div>
+                                <div class="audio-time-display">
+                                    <span id="audio-current-time">0:00</span>
+                                    <span id="audio-total-time">0:00</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Video Player -->
+                <div class="video-player-section" id="video-player-section">
+                    <div class="video-player-card">
+                        <video controls id="video-player"></video>
+                        <div class="video-player-info">
+                            <span class="video-player-label"><i class="fas fa-check-circle"></i> Video Ready</span>
+                            <button class="video-download-btn" id="video-download-btn-inline">
+                                <i class="fas fa-download"></i> Download MP4
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Script -->
+            <div class="script-section">
+                <h3><i class="fas fa-file-alt"></i> Script (Spanish)</h3>
+                <textarea class="script-textarea" id="script-textarea"
+                    placeholder="Your translated Spanish text will appear here. You can edit it before generating the voiceover."></textarea>
+                <div class="script-char-count"><span id="char-count">0</span> characters</div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Voice Controls -->
+        <div class="studio-controls">
+            <!-- Voice Selection -->
+            <div class="controls-section">
+                <h3><i class="fas fa-microphone-alt"></i> Voice Selection</h3>
+
+                <div class="voice-select-group">
+                    <label>Language</label>
+                    <select id="voice-language">
+                        <option value="">Loading voices...</option>
+                    </select>
+                </div>
+
+                <div class="voice-select-group">
+                    <label>Gender</label>
+                    <select id="voice-gender">
+                        <option value="all">All</option>
+                        <option value="Female" selected>♀️ Female</option>
+                        <option value="Male">♂️ Male</option>
+                    </select>
+                </div>
+
+                <div class="voice-select-group">
+                    <label>Voice</label>
+                    <select id="voice-select">
+                        <option value="">Select language first</option>
+                    </select>
+                </div>
+
+                <div class="voice-info" id="voice-info">
+                    <span class="voice-info-text" id="voice-info-text"></span>
+                </div>
+
+                <div class="voice-stats" id="voice-stats">Loading voices...</div>
+            </div>
+
+            <!-- Speed & Pitch -->
+            <div class="controls-section">
+                <h3><i class="fas fa-sliders-h"></i> Voice Settings</h3>
+
+                <div class="speed-presets">
+                    <button class="speed-preset-btn" data-rate="-20%">🐢 Slow</button>
+                    <button class="speed-preset-btn active" data-rate="+0%">🎯 Normal</button>
+                    <button class="speed-preset-btn" data-rate="+20%">🐇 Fast</button>
+                </div>
+
+                <div class="slider-group">
+                    <div class="slider-label">
+                        <label>Speed</label>
+                        <span class="slider-value" id="rate-value">+0%</span>
+                    </div>
+                    <input type="range" class="studio-slider" id="rate-slider" min="-50" max="50" value="0">
+                </div>
+
+                <div class="slider-group">
+                    <div class="slider-label">
+                        <label>Pitch</label>
+                        <span class="slider-value" id="pitch-value">+0Hz</span>
+                    </div>
+                    <input type="range" class="studio-slider" id="pitch-slider" min="-20" max="20" value="0">
+                </div>
+
+                <button class="preview-voice-btn" id="preview-voice-btn">
+                    <i class="fas fa-volume-up"></i> Preview Voice
+                </button>
+            </div>
+
+            <!-- Actions -->
+            <div class="controls-section">
+                <h3><i class="fas fa-magic"></i> Generate</h3>
+
+                <div class="studio-action-btns">
+                    <button class="studio-generate-btn" id="generate-voiceover-btn" disabled>
+                        <i class="fas fa-microphone"></i> Generate Voiceover
+                    </button>
+
+                    <div class="generation-progress" id="voiceover-progress">
+                        <div class="progress-bar-outer">
+                            <div class="progress-bar-inner" id="voiceover-progress-bar"></div>
+                        </div>
+                        <div class="progress-text" id="voiceover-progress-text">Starting...</div>
+                    </div>
+
+                    <button class="studio-video-btn" id="create-video-btn" disabled>
+                        <i class="fas fa-film"></i> Create Video
+                    </button>
+
+                    <div class="generation-progress" id="video-progress">
+                        <div class="progress-bar-outer">
+                            <div class="progress-bar-inner" id="video-progress-bar"></div>
+                        </div>
+                        <div class="progress-text" id="video-progress-text">Starting...</div>
+                    </div>
+
+                    <button class="studio-download-btn" id="download-video-btn">
+                        <i class="fas fa-download"></i> Download MP4
+                    </button>
+
+                    <!-- Batch Generate All -->
+                    <div style="border-top: 1px solid var(--border); margin-top: 0.5rem; padding-top: 0.75rem;">
+                        <button class="studio-generate-all-btn" id="generate-all-btn" disabled>
+                            <i class="fas fa-rocket"></i> Generate All Videos
+                        </button>
+                        <button class="studio-cancel-btn" id="cancel-all-btn">
+                            <i class="fas fa-stop"></i> Cancel
+                        </button>
+                        <div class="batch-progress" id="batch-progress">
+                            <div class="batch-progress-header">
+                                <span class="batch-progress-label" id="batch-progress-label">Processing...</span>
+                                <span class="batch-progress-count" id="batch-progress-count">0/0</span>
+                            </div>
+                            <div class="progress-bar-outer">
+                                <div class="progress-bar-inner batch-bar" id="batch-progress-bar"></div>
+                            </div>
+                            <div class="batch-progress-status" id="batch-progress-status">Starting...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ===== STATE =====
+        let studioData = [];
+        let currentVideoIndex = -1;
+        let allVoices = {};
+        let recommendedVoices = {};
+        let currentAudio = null;
+        let currentAudioFilename = null;
+        let currentVideoFilename = null;
+        let isBatchRunning = false;
+        let batchCancelled = false;
+
+        // ===== INIT =====
+        async function init() {
+            const stored = sessionStorage.getItem('studioData');
+            if (stored) {
+                studioData = JSON.parse(stored);
+            }
+
+            if (studioData.length === 0) {
+                showEmptyState();
+                return;
+            }
+
+            renderQueue();
+            selectVideo(0);
+            await loadVoices();
+
+            // Enable generate buttons
+            document.getElementById('generate-voiceover-btn').disabled = false;
+            document.getElementById('generate-all-btn').disabled = false;
+        }
+
+        function showEmptyState() {
+            document.getElementById('studio-center').innerHTML = `
+                <div class="studio-empty">
+                    <i class="fas fa-film"></i>
+                    <p>No videos to process.</p>
+                    <p>Go to <a href="/translate">Translation</a> and edit thumbnails first, then send them here.</p>
+                </div>
+            `;
+        }
+
+        // ===== QUEUE =====
+        function renderQueue() {
+            const list = document.getElementById('queue-list');
+            list.innerHTML = '';
+
+            studioData.forEach((item, index) => {
+                const div = document.createElement('div');
+                div.className = `queue-item ${index === currentVideoIndex ? 'active' : ''}`;
+                div.dataset.index = index;
+
+                let statusIcon = '⬜';
+                let statusText = 'Pending';
+                let statusClass = 'status-pending';
+
+                if (item._videoFilename) {
+                    statusIcon = '🎬';
+                    statusText = 'Video done';
+                    statusClass = 'status-video-done';
+                } else if (item._audioFilename) {
+                    statusIcon = '🎙️';
+                    statusText = 'Audio done';
+                    statusClass = 'status-audio-done';
+                }
+
+                div.innerHTML = `
+                    <img class="queue-item-thumb" 
+                         src="${item.edited_thumbnail_base64 || item.thumbnail_url}" 
+                         alt="${item.title}"
+                         onerror="this.src='${item.thumbnail_url}'">
+                    <div class="queue-item-info">
+                        <div class="queue-item-title">${item.title || 'Untitled'}</div>
+                        <div class="queue-item-status ${statusClass}">
+                            <span class="status-icon">${statusIcon}</span> ${statusText}
+                        </div>
+                    </div>
+                `;
+
+                div.addEventListener('click', () => selectVideo(index));
+                list.appendChild(div);
+            });
+        }
+
+        function selectVideo(index) {
+            currentVideoIndex = index;
+            const item = studioData[index];
+
+            // Update queue active state
+            renderQueue();
+
+            // Update preview image
+            const previewImg = document.getElementById('preview-image');
+            const placeholder = document.getElementById('preview-placeholder');
+
+            if (item.edited_thumbnail_base64) {
+                previewImg.src = item.edited_thumbnail_base64;
+                previewImg.style.display = 'block';
+                placeholder.style.display = 'none';
+            } else if (item.thumbnail_url) {
+                previewImg.src = item.thumbnail_url;
+                previewImg.style.display = 'block';
+                placeholder.style.display = 'none';
+            }
+
+            // Update script
+            document.getElementById('script-textarea').value = item.spanish_text || '';
+            updateCharCount();
+
+            // Restore audio state
+            currentAudioFilename = item._audioFilename || null;
+            currentVideoFilename = item._videoFilename || null;
+
+            // Update audio player
+            if (currentAudioFilename) {
+                showAudioPlayer(currentAudioFilename);
+                document.getElementById('create-video-btn').disabled = false;
+            } else {
+                hideAudioPlayer();
+                document.getElementById('create-video-btn').disabled = true;
+            }
+
+            // Update video player
+            if (currentVideoFilename) {
+                showVideoPlayer(currentVideoFilename);
+            } else {
+                hideVideoPlayer();
+            }
+        }
+
+        function updateCharCount() {
+            const text = document.getElementById('script-textarea').value;
+            document.getElementById('char-count').textContent = text.length.toLocaleString();
+        }
+
+        document.getElementById('script-textarea').addEventListener('input', updateCharCount);
+
+        // ===== VOICE LOADING =====
+        async function loadVoices() {
+            try {
+                const res = await fetch('/api/voices');
+                const data = await res.json();
+
+                if (!data.success) {
+                    document.getElementById('voice-stats').textContent = 'Failed to load voices';
+                    return;
+                }
+
+                allVoices = data.voices;
+                recommendedVoices = data.recommended || {};
+
+                // Populate language dropdown
+                const langSelect = document.getElementById('voice-language');
+                langSelect.innerHTML = '';
+
+                // Sort languages (Spanish first for this app)
+                const languages = Object.keys(allVoices).sort((a, b) => {
+                    if (a === 'Spanish') return -1;
+                    if (b === 'Spanish') return 1;
+                    if (a === 'English') return -1;
+                    if (b === 'English') return 1;
+                    return a.localeCompare(b);
+                });
+
+                languages.forEach(lang => {
+                    const count = allVoices[lang].length;
+                    const option = document.createElement('option');
+                    option.value = lang;
+                    option.textContent = `${lang} (${count} voices)`;
+                    langSelect.appendChild(option);
+                });
+
+                // Default to Spanish
+                langSelect.value = 'Spanish';
+                updateVoiceList();
+
+                // Stats
+                document.getElementById('voice-stats').textContent =
+                    `${data.total_voices} voices in ${data.total_languages} languages`;
+
+            } catch (err) {
+                console.error('Failed to load voices:', err);
+                document.getElementById('voice-stats').textContent = 'Error loading voices';
+            }
+        }
+
+        function updateVoiceList() {
+            const selectedLang = document.getElementById('voice-language').value;
+            const selectedGender = document.getElementById('voice-gender').value;
+            const voiceSelect = document.getElementById('voice-select');
+
+            if (!selectedLang || !allVoices[selectedLang]) {
+                voiceSelect.innerHTML = '<option value="">Select a language first</option>';
+                return;
+            }
+
+            let voices = allVoices[selectedLang];
+            if (selectedGender !== 'all') {
+                voices = voices.filter(v => v.gender === selectedGender);
+            }
+
+            voiceSelect.innerHTML = '';
+
+            // Split recommended and others
+            const recommended = voices.filter(v => v.recommended);
+            const others = voices.filter(v => !v.recommended);
+
+            if (recommended.length > 0) {
+                const recGroup = document.createElement('optgroup');
+                recGroup.label = '⭐ Recommended';
+                recommended.forEach(voice => {
+                    const option = document.createElement('option');
+                    option.value = voice.id;
+                    option.textContent = `⭐ ${voice.display}${voice.style ? ' — ' + voice.style : ''}`;
+                    recGroup.appendChild(option);
+                });
+                voiceSelect.appendChild(recGroup);
+            }
+
+            if (others.length > 0) {
+                const maleVoices = others.filter(v => v.gender === 'Male');
+                const femaleVoices = others.filter(v => v.gender === 'Female');
+
+                if (femaleVoices.length > 0) {
+                    const femaleGroup = document.createElement('optgroup');
+                    femaleGroup.label = '♀️ Female';
+                    femaleVoices.forEach(voice => {
+                        const option = document.createElement('option');
+                        option.value = voice.id;
+                        option.textContent = voice.display;
+                        femaleGroup.appendChild(option);
+                    });
+                    voiceSelect.appendChild(femaleGroup);
+                }
+
+                if (maleVoices.length > 0) {
+                    const maleGroup = document.createElement('optgroup');
+                    maleGroup.label = '♂️ Male';
+                    maleVoices.forEach(voice => {
+                        const option = document.createElement('option');
+                        option.value = voice.id;
+                        option.textContent = voice.display;
+                        maleGroup.appendChild(option);
+                    });
+                    voiceSelect.appendChild(maleGroup);
+                }
+            }
+
+            if (voiceSelect.options.length === 0) {
+                voiceSelect.innerHTML = '<option value="">No voices found</option>';
+            }
+
+            // Default to es-MX-DaliaNeural if available
+            const defaultVoice = 'es-MX-DaliaNeural';
+            for (let i = 0; i < voiceSelect.options.length; i++) {
+                if (voiceSelect.options[i].value === defaultVoice) {
+                    voiceSelect.value = defaultVoice;
+                    break;
+                }
+            }
+
+            updateVoiceInfo();
+        }
+
+        function updateVoiceInfo() {
+            const voiceId = document.getElementById('voice-select').value;
+            const infoDiv = document.getElementById('voice-info');
+            const infoText = document.getElementById('voice-info-text');
+
+            if (recommendedVoices[voiceId]) {
+                const rec = recommendedVoices[voiceId];
+                infoText.innerHTML = `<i class="fas fa-star"></i> ${rec.note}`;
+                infoDiv.classList.add('visible');
+            } else {
+                infoDiv.classList.remove('visible');
+            }
+        }
+
+        document.getElementById('voice-language').addEventListener('change', updateVoiceList);
+        document.getElementById('voice-gender').addEventListener('change', updateVoiceList);
+        document.getElementById('voice-select').addEventListener('change', updateVoiceInfo);
+
+        // ===== SPEED & PITCH =====
+        function getRate() {
+            const val = parseInt(document.getElementById('rate-slider').value);
+            return val >= 0 ? `+${val}%` : `${val}%`;
+        }
+
+        function getPitch() {
+            const val = parseInt(document.getElementById('pitch-slider').value);
+            return val >= 0 ? `+${val}Hz` : `${val}Hz`;
+        }
+
+        document.getElementById('rate-slider').addEventListener('input', (e) => {
+            const val = parseInt(e.target.value);
+            document.getElementById('rate-value').textContent = val >= 0 ? `+${val}%` : `${val}%`;
+            // Update active preset
+            document.querySelectorAll('.speed-preset-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.rate === (val >= 0 ? `+${val}%` : `${val}%`)) {
+                    btn.classList.add('active');
+                }
+            });
+        });
+
+        document.getElementById('pitch-slider').addEventListener('input', (e) => {
+            const val = parseInt(e.target.value);
+            document.getElementById('pitch-value').textContent = val >= 0 ? `+${val}Hz` : `${val}Hz`;
+        });
+
+        document.querySelectorAll('.speed-preset-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.speed-preset-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                const rate = btn.dataset.rate;
+                const numVal = parseInt(rate.replace('%', '').replace('+', ''));
+                document.getElementById('rate-slider').value = numVal;
+                document.getElementById('rate-value').textContent = rate;
+            });
+        });
+
+        // ===== VOICE PREVIEW =====
+        document.getElementById('preview-voice-btn').addEventListener('click', async () => {
+            const btn = document.getElementById('preview-voice-btn');
+            const voice = document.getElementById('voice-select').value;
+
+            if (!voice) {
+                alert('Please select a voice first');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating preview...';
+
+            try {
+                const scriptText = document.getElementById('script-textarea').value;
+                const previewText = scriptText.substring(0, 150) || 
+                    'Hola, esta es una vista previa de la voz seleccionada para tu video de fútbol.';
+
+                const res = await fetch('/api/voice/preview', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        text: previewText,
+                        voice: voice,
+                        rate: getRate(),
+                        pitch: getPitch()
+                    })
+                });
+
+                if (res.ok) {
+                    const blob = await res.blob();
+                    const url = URL.createObjectURL(blob);
+                    const audio = new Audio(url);
+                    audio.play();
+                    audio.onended = () => URL.revokeObjectURL(url);
+                } else {
+                    const err = await res.json();
+                    alert('Preview failed: ' + (err.error || 'Unknown error'));
+                }
+            } catch (err) {
+                alert('Preview failed: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-volume-up"></i> Preview Voice';
+            }
+        });
+
+        // ===== VOICEOVER GENERATION =====
+        document.getElementById('generate-voiceover-btn').addEventListener('click', async () => {
+            const text = document.getElementById('script-textarea').value.trim();
+            if (!text) {
+                alert('Please enter some text in the script area');
+                return;
+            }
+
+            const voice = document.getElementById('voice-select').value;
+            if (!voice) {
+                alert('Please select a voice');
+                return;
+            }
+
+            const btn = document.getElementById('generate-voiceover-btn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting...';
+
+            const progressDiv = document.getElementById('voiceover-progress');
+            const progressBar = document.getElementById('voiceover-progress-bar');
+            const progressText = document.getElementById('voiceover-progress-text');
+            progressDiv.classList.add('visible');
+            progressBar.style.width = '0%';
+
+            try {
+                // Generate a clean output name
+                const item = studioData[currentVideoIndex];
+                const outputName = `voiceover_${item.video_id || Date.now()}`;
+
+                const res = await fetch('/api/voiceover/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        text: text,
+                        voice: voice,
+                        rate: getRate(),
+                        pitch: getPitch(),
+                        output_name: outputName
+                    })
+                });
+
+                const data = await res.json();
+                if (!data.success) {
+                    throw new Error(data.error);
+                }
+
+                // Poll progress
+                const taskId = data.task_id;
+                await pollProgress(taskId, 'voiceover');
+
+            } catch (err) {
+                alert('Voiceover generation failed: ' + err.message);
+                progressDiv.classList.remove('visible');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-microphone"></i> Generate Voiceover';
+            }
+        });
+
+        async function pollProgress(taskId, type) {
+            const progressBar = document.getElementById(`${type}-progress-bar`);
+            const progressText = document.getElementById(`${type}-progress-text`);
+            const progressDiv = document.getElementById(`${type}-progress`);
+
+            while (true) {
+                await new Promise(r => setTimeout(r, 500));
+
+                try {
+                    const endpoint = type === 'voiceover' ? '/api/voiceover/status/' : '/api/video/status/';
+                    const res = await fetch(endpoint + taskId);
+                    const progress = await res.json();
+
+                    progressBar.style.width = progress.progress + '%';
+                    progressText.textContent = progress.message || `${progress.progress}%`;
+
+                    if (progress.status === 'done') {
+                        if (type === 'voiceover') {
+                            currentAudioFilename = progress.output_name;
+                            // Save to studioData
+                            studioData[currentVideoIndex]._audioFilename = currentAudioFilename;
+                            sessionStorage.setItem('studioData', JSON.stringify(studioData));
+
+                            showAudioPlayer(currentAudioFilename);
+                            document.getElementById('create-video-btn').disabled = false;
+                            renderQueue();
+                        } else {
+                            currentVideoFilename = progress.output_name;
+                            studioData[currentVideoIndex]._videoFilename = currentVideoFilename;
+                            sessionStorage.setItem('studioData', JSON.stringify(studioData));
+
+                            showVideoPlayer(currentVideoFilename);
+                            renderQueue();
+                        }
+
+                        setTimeout(() => {
+                            progressDiv.classList.remove('visible');
+                        }, 2000);
+                        return;
+                    }
+
+                    if (progress.status === 'error') {
+                        throw new Error(progress.message);
+                    }
+                } catch (err) {
+                    progressText.textContent = 'Error: ' + err.message;
+                    setTimeout(() => progressDiv.classList.remove('visible'), 3000);
+                    throw err;
+                }
+            }
+        }
+
+        // ===== AUDIO PLAYER =====
+        function showAudioPlayer(filename) {
+            const playerCard = document.getElementById('audio-player-card');
+            playerCard.classList.add('visible');
+
+            // Create audio element
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio = null;
+            }
+
+            currentAudio = new Audio(`/api/voiceover/stream/${filename}`);
+
+            currentAudio.addEventListener('loadedmetadata', () => {
+                const duration = currentAudio.duration;
+                document.getElementById('audio-total-time').textContent = formatTime(duration);
+                document.getElementById('audio-duration-display').textContent = formatTime(duration);
+            });
+
+            currentAudio.addEventListener('timeupdate', () => {
+                const pct = (currentAudio.currentTime / currentAudio.duration) * 100;
+                document.getElementById('audio-progress-fill').style.width = pct + '%';
+                document.getElementById('audio-current-time').textContent = formatTime(currentAudio.currentTime);
+            });
+
+            currentAudio.addEventListener('ended', () => {
+                document.getElementById('audio-play-btn').innerHTML = '<i class="fas fa-play"></i>';
+            });
+        }
+
+        function hideAudioPlayer() {
+            document.getElementById('audio-player-card').classList.remove('visible');
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio = null;
+            }
+        }
+
+        document.getElementById('audio-play-btn').addEventListener('click', () => {
+            if (!currentAudio) return;
+
+            if (currentAudio.paused) {
+                currentAudio.play();
+                document.getElementById('audio-play-btn').innerHTML = '<i class="fas fa-pause"></i>';
+            } else {
+                currentAudio.pause();
+                document.getElementById('audio-play-btn').innerHTML = '<i class="fas fa-play"></i>';
+            }
+        });
+
+        document.getElementById('audio-progress-bar').addEventListener('click', (e) => {
+            if (!currentAudio) return;
+            const rect = e.target.getBoundingClientRect();
+            const pct = (e.clientX - rect.left) / rect.width;
+            currentAudio.currentTime = pct * currentAudio.duration;
+        });
+
+        function formatTime(seconds) {
+            if (isNaN(seconds)) return '0:00';
+            const m = Math.floor(seconds / 60);
+            const s = Math.floor(seconds % 60);
+            return `${m}:${s.toString().padStart(2, '0')}`;
+        }
+
+        // ===== VIDEO CREATION =====
+        async function fetchImageAsBase64(url) {
+            // Fetch image through existing backend proxy endpoint
+            const res = await fetch('/api/thumbnail/fetch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: url })
+            });
+            const data = await res.json();
+            if (data.success) {
+                return 'data:image/jpeg;base64,' + data.image;
+            }
+            throw new Error(data.error || 'Failed to fetch thumbnail');
+        }
+
+        function blobToBase64(blob) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        }
+
+        document.getElementById('create-video-btn').addEventListener('click', async () => {
+            if (!currentAudioFilename) {
+                alert('Generate voiceover first');
+                return;
+            }
+
+            const item = studioData[currentVideoIndex];
+            let imageBase64 = item.edited_thumbnail_base64 || null;
+
+            const btn = document.getElementById('create-video-btn');
+
+            // If no edited thumbnail, fetch the original
+            if (!imageBase64 && item.thumbnail_url) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Fetching thumbnail...';
+                try {
+                    imageBase64 = await fetchImageAsBase64(item.thumbnail_url);
+                } catch (err) {
+                    alert('Could not fetch original thumbnail. Please edit the thumbnail in Phase 3 first.');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-film"></i> Create Video';
+                    return;
+                }
+            }
+
+            if (!imageBase64) {
+                alert('No thumbnail available. Please go back and load a thumbnail first.');
+                return;
+            }
+
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
+
+            const progressDiv = document.getElementById('video-progress');
+            const progressBar = document.getElementById('video-progress-bar');
+            progressDiv.classList.add('visible');
+            progressBar.style.width = '0%';
+
+            try {
+                const outputName = `video_${item.video_id || Date.now()}`;
+
+                const res = await fetch('/api/video/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        image: imageBase64,
+                        audio_filename: currentAudioFilename,
+                        output_name: outputName
+                    })
+                });
+
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error);
+
+                await pollProgress(data.task_id, 'video');
+
+            } catch (err) {
+                alert('Video creation failed: ' + err.message);
+                progressDiv.classList.remove('visible');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-film"></i> Create Video';
+            }
+        });
+
+        // ===== VIDEO PLAYER =====
+        function showVideoPlayer(filename) {
+            const section = document.getElementById('video-player-section');
+            const player = document.getElementById('video-player');
+            section.classList.add('visible');
+            player.src = `/api/video/stream/${filename}`;
+
+            // Show download buttons
+            document.getElementById('download-video-btn').classList.add('visible');
+            document.getElementById('download-video-btn').onclick = () => {
+                window.location.href = `/api/video/download/${filename}`;
+            };
+            document.getElementById('video-download-btn-inline').onclick = () => {
+                window.location.href = `/api/video/download/${filename}`;
+            };
+        }
+
+        function hideVideoPlayer() {
+            document.getElementById('video-player-section').classList.remove('visible');
+            document.getElementById('download-video-btn').classList.remove('visible');
+        }
+
+        // ===== DOWNLOAD =====
+        document.getElementById('download-video-btn').addEventListener('click', () => {
+            if (currentVideoFilename) {
+                window.location.href = `/api/video/download/${currentVideoFilename}`;
+            }
+        });
+
+        // ===== GENERATE ALL =====
+        document.getElementById('generate-all-btn').addEventListener('click', () => generateAll());
+        document.getElementById('cancel-all-btn').addEventListener('click', () => {
+            batchCancelled = true;
+        });
+
+        async function generateAll() {
+            if (isBatchRunning) return;
+            if (studioData.length === 0) return;
+
+            const voice = document.getElementById('voice-select').value;
+            if (!voice) {
+                alert('Please select a voice first');
+                return;
+            }
+
+            isBatchRunning = true;
+            batchCancelled = false;
+
+            const genAllBtn = document.getElementById('generate-all-btn');
+            const cancelBtn = document.getElementById('cancel-all-btn');
+            const batchDiv = document.getElementById('batch-progress');
+            const batchBar = document.getElementById('batch-progress-bar');
+            const batchLabel = document.getElementById('batch-progress-label');
+            const batchCount = document.getElementById('batch-progress-count');
+            const batchStatus = document.getElementById('batch-progress-status');
+
+            // Disable individual buttons during batch
+            document.getElementById('generate-voiceover-btn').disabled = true;
+            document.getElementById('create-video-btn').disabled = true;
+            genAllBtn.disabled = true;
+            genAllBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            cancelBtn.classList.add('visible');
+            batchDiv.classList.add('visible');
+
+            const total = studioData.length;
+            let completed = 0;
+            let errors = [];
+
+            for (let i = 0; i < total; i++) {
+                if (batchCancelled) {
+                    batchStatus.textContent = 'Cancelled by user';
+                    break;
+                }
+
+                const item = studioData[i];
+                batchCount.textContent = `${i + 1}/${total}`;
+                batchBar.style.width = `${(i / total) * 100}%`;
+
+                // Switch to this video in the UI
+                selectVideo(i);
+
+                // --- Step 1: Generate Voiceover ---
+                const text = item.spanish_text || '';
+                if (!text) {
+                    errors.push(`Video ${i + 1}: No script text, skipped`);
+                    continue;
+                }
+
+                // Skip if already has video
+                if (item._videoFilename) {
+                    batchStatus.textContent = `Video ${i + 1}: Already done, skipping`;
+                    completed++;
+                    continue;
+                }
+
+                batchLabel.textContent = `🎙️ Voiceover ${i + 1}/${total}`;
+                batchStatus.textContent = `Generating voiceover for: ${item.title?.substring(0, 40) || 'Video ' + (i + 1)}...`;
+
+                try {
+                    // Skip voiceover if already generated
+                    if (!item._audioFilename) {
+                        const outputName = `voiceover_${item.video_id || Date.now()}`;
+                        const res = await fetch('/api/voiceover/generate', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                text: text,
+                                voice: voice,
+                                rate: getRate(),
+                                pitch: getPitch(),
+                                output_name: outputName
+                            })
+                        });
+                        const data = await res.json();
+                        if (!data.success) throw new Error(data.error);
+
+                        // Poll until done
+                        await pollProgressSilent(data.task_id, 'voiceover', i);
+                    } else {
+                        currentAudioFilename = item._audioFilename;
+                    }
+
+                    if (batchCancelled) break;
+
+                    // --- Step 2: Create Video ---
+                    batchLabel.textContent = `🎬 Video ${i + 1}/${total}`;
+                    batchStatus.textContent = `Creating video for: ${item.title?.substring(0, 40) || 'Video ' + (i + 1)}...`;
+
+                    let imageBase64 = item.edited_thumbnail_base64 || null;
+
+                    // Fetch original if no edited thumbnail
+                    if (!imageBase64 && item.thumbnail_url) {
+                        batchStatus.textContent = 'Fetching thumbnail...';
+                        imageBase64 = await fetchImageAsBase64(item.thumbnail_url);
+                    }
+
+                    if (!imageBase64) {
+                        errors.push(`Video ${i + 1}: No thumbnail available`);
+                        continue;
+                    }
+
+                    const audioFn = item._audioFilename || currentAudioFilename;
+                    const vidOutputName = `video_${item.video_id || Date.now()}`;
+
+                    const vidRes = await fetch('/api/video/create', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            image: imageBase64,
+                            audio_filename: audioFn,
+                            output_name: vidOutputName
+                        })
+                    });
+                    const vidData = await vidRes.json();
+                    if (!vidData.success) throw new Error(vidData.error);
+
+                    await pollProgressSilent(vidData.task_id, 'video', i);
+                    completed++;
+
+                } catch (err) {
+                    errors.push(`Video ${i + 1}: ${err.message}`);
+                }
+
+                renderQueue();
+            }
+
+            // Done
+            batchBar.style.width = '100%';
+            isBatchRunning = false;
+
+            if (batchCancelled) {
+                batchLabel.textContent = '⏹️ Cancelled';
+                batchStatus.textContent = `Completed ${completed}/${total} videos before cancellation`;
+            } else if (errors.length > 0) {
+                batchLabel.textContent = `⚠️ Done with ${errors.length} error(s)`;
+                batchStatus.textContent = errors[0];
+            } else {
+                batchLabel.textContent = '✅ All Done!';
+                batchStatus.textContent = `Successfully generated ${completed} video${completed !== 1 ? 's' : ''}`;
+            }
+
+            genAllBtn.disabled = false;
+            genAllBtn.innerHTML = '<i class="fas fa-rocket"></i> Generate All Videos';
+            cancelBtn.classList.remove('visible');
+            document.getElementById('generate-voiceover-btn').disabled = false;
+
+            setTimeout(() => {
+                batchDiv.classList.remove('visible');
+            }, 5000);
+        }
+
+        async function pollProgressSilent(taskId, type, videoIndex) {
+            // Silent version of pollProgress for batch mode — no UI updates to individual progress bars
+            while (true) {
+                if (batchCancelled) return;
+                await new Promise(r => setTimeout(r, 500));
+
+                const endpoint = type === 'voiceover' ? '/api/voiceover/status/' : '/api/video/status/';
+                const res = await fetch(endpoint + taskId);
+                const progress = await res.json();
+
+                // Update batch status with sub-progress
+                const batchStatus = document.getElementById('batch-progress-status');
+                batchStatus.textContent = progress.message || `${progress.progress}%`;
+
+                if (progress.status === 'done') {
+                    if (type === 'voiceover') {
+                        currentAudioFilename = progress.output_name;
+                        studioData[videoIndex]._audioFilename = currentAudioFilename;
+                        sessionStorage.setItem('studioData', JSON.stringify(studioData));
+                        if (videoIndex === currentVideoIndex) {
+                            showAudioPlayer(currentAudioFilename);
+                            document.getElementById('create-video-btn').disabled = false;
+                        }
+                    } else {
+                        currentVideoFilename = progress.output_name;
+                        studioData[videoIndex]._videoFilename = currentVideoFilename;
+                        sessionStorage.setItem('studioData', JSON.stringify(studioData));
+                        if (videoIndex === currentVideoIndex) {
+                            showVideoPlayer(currentVideoFilename);
+                        }
+                    }
+                    renderQueue();
+                    return;
+                }
+
+                if (progress.status === 'error') {
+                    throw new Error(progress.message);
+                }
+            }
+        }
+
+        // ===== INIT =====
+        init();
+    </script>
+</body>
+
+</html>

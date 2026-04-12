@@ -204,6 +204,10 @@
                     <button class="btn btn-ghost btn-full" id="copy-btn" disabled>
                         <i class="far fa-copy"></i> Copy to Clipboard
                     </button>
+                    <button class="btn btn-full" id="send-to-studio-btn" disabled
+                            style="background: linear-gradient(135deg, #f97316, #fb923c); color: white; border: none; margin-top: 0.5rem; font-weight: 600;">
+                        <i class="fas fa-film"></i> Send to Studio (Phase 4)
+                    </button>
                 </div>
             </div>
         </div>
@@ -238,6 +242,10 @@
         // Inline text editing mode
         let isEditingText = false;
         let editingElementIndex = -1;
+
+        // ===== MULTI-THUMBNAIL STATE =====
+        // Saves per-thumbnail: { drawnElements, canvasBase64 }
+        let savedEdits = {};
 
         const canvas = document.getElementById('thumbnail-canvas');
         const ctx = canvas.getContext('2d');
@@ -290,6 +298,11 @@
         let selectedThumbnailIndex = -1;
 
         function selectThumbnail(index) {
+            // Auto-save current thumbnail's edits before switching
+            if (selectedThumbnailIndex >= 0 && currentImage) {
+                saveCurrentEdit();
+            }
+
             selectedThumbnailIndex = index;
             const thumb = thumbnails[index];
 
@@ -301,6 +314,17 @@
                     item.classList.remove('active');
                 }
             });
+
+            // Reset editing state
+            drawnElements = [];
+            selectedElementIndex = -1;
+            selectedRegion = null;
+            selectionBox.style.display = 'none';
+
+            // Restore saved edits for this thumbnail if they exist
+            if (savedEdits[index]) {
+                drawnElements = JSON.parse(JSON.stringify(savedEdits[index].drawnElements));
+            }
 
             // Load the thumbnail
             loadThumbnail(thumb);
@@ -339,6 +363,11 @@
 
                 placeholder.style.display = 'none';
                 enableControls();
+
+                // Re-render to draw any restored elements (multi-thumbnail switching)
+                if (drawnElements.length > 0) {
+                    renderCanvas();
+                }
             };
 
             img.onerror = () => {
@@ -390,6 +419,7 @@
             // Enable tool buttons
             document.getElementById('rect-tool-btn').disabled = false;
             document.getElementById('text-tool-btn').disabled = false;
+            document.getElementById('send-to-studio-btn').disabled = false;
         }
 
         function setupEventListeners() {
@@ -1108,6 +1138,96 @@
                     }, 2000);
                 } catch (err) {
                     alert('Failed to copy to clipboard');
+                }
+            });
+
+            // Send to Studio button
+            document.getElementById('send-to-studio-btn').addEventListener('click', () => {
+                if (!currentImage && thumbnails.length === 0) {
+                    alert('Please load and edit a thumbnail first');
+                    return;
+                }
+
+                // Save current thumbnail's edits first
+                if (selectedThumbnailIndex >= 0 && currentImage) {
+                    saveCurrentEdit();
+                }
+
+                // Get translation data from sessionStorage
+                const translationState = sessionStorage.getItem('translationState');
+
+                // Build studio data for ALL thumbnails, using saved edits
+                const studioData = thumbnails.map((thumb, idx) => {
+                    let itemSpanishText = '';
+                    if (translationState) {
+                        try {
+                            const state = JSON.parse(translationState);
+                            const videoData = state.translations?.[thumb.video_id];
+                            if (videoData) {
+                                itemSpanishText = videoData.final || videoData.english || '';
+                            }
+                        } catch (e) { }
+                    }
+
+                    // Use saved edit for this thumbnail if it exists
+                    const editBase64 = savedEdits[idx]?.canvasBase64 || null;
+
+                    return {
+                        video_id: thumb.video_id,
+                        title: thumb.title,
+                        thumbnail_url: thumb.thumbnail_url,
+                        production_title: thumb.production_title || '',
+                        spanish_text: itemSpanishText,
+                        edited_thumbnail_base64: editBase64
+                    };
+                });
+
+                sessionStorage.setItem('studioData', JSON.stringify(studioData));
+
+                const editedCount = Object.keys(savedEdits).length;
+                const totalCount = thumbnails.length;
+
+                const btn = document.getElementById('send-to-studio-btn');
+                btn.innerHTML = `<i class="fas fa-check"></i> Sending ${editedCount}/${totalCount}...`;
+
+                setTimeout(() => {
+                    window.location.href = '/studio';
+                }, 500);
+            });
+        }
+
+        // ===== SAVE/RESTORE PER-THUMBNAIL EDITS =====
+        function saveCurrentEdit() {
+            if (selectedThumbnailIndex < 0 || !currentImage) return;
+
+            // Render canvas cleanly (no selection highlights)
+            const prevSelected = selectedElementIndex;
+            selectedElementIndex = -1;
+            renderCanvas();
+
+            savedEdits[selectedThumbnailIndex] = {
+                drawnElements: JSON.parse(JSON.stringify(drawnElements)),
+                canvasBase64: canvas.toDataURL('image/png')
+            };
+
+            // Restore selection
+            selectedElementIndex = prevSelected;
+            if (prevSelected >= 0) renderCanvas();
+
+            // Update sidebar to show edited indicator
+            updateSidebarIndicators();
+        }
+
+        function updateSidebarIndicators() {
+            document.querySelectorAll('.thumb-item').forEach((item, i) => {
+                const existing = item.querySelector('.edited-badge');
+                if (savedEdits[i] && !existing) {
+                    const badge = document.createElement('span');
+                    badge.className = 'edited-badge';
+                    badge.textContent = '✏️ Edited';
+                    badge.style.cssText = 'font-size: 0.6rem; background: rgba(249,115,22,0.2); color: #f97316; padding: 2px 6px; border-radius: 4px; display: block; margin-top: 3px;';
+                    const info = item.querySelector('.thumb-item-info');
+                    if (info) info.appendChild(badge);
                 }
             });
         }
