@@ -4,6 +4,7 @@ from transcriber import TranscriptExtractor
 from translator import TranslationService
 import voice_generator
 import video_generator
+import youtube_uploader
 import config
 from flask_cors import CORS
 import threading
@@ -44,6 +45,11 @@ def thumbnail_page():
 @app.route('/studio')
 def studio_page():
     return render_template('studio.html')
+
+
+@app.route('/upload')
+def upload_page():
+    return render_template('upload.html')
 
 
 @app.route('/api/channel/videos', methods=['GET'])
@@ -182,7 +188,7 @@ Return EXACTLY this JSON format (no markdown, no code blocks, just raw JSON):
 }}
 
 RULES FOR EACH FIELD:
-- TITLE: DIRECTLY TRANSLATE the original title to Spanish word-by-word. Keep the SAME structure and format (including any | separators). Do NOT rewrite or rephrase creatively - just translate literally. Add 🚨 at start and make ALL UPPERCASE. Keep English words like "Football", "Champions League", team names, player names as they are.
+- TITLE: TRANSLATE the original title to Spanish. Keep the SAME structure and format (including any | separators). The original title may be in Malayalam, English, or any language — translate it accurately to Spanish. Add 🚨 at start and make ALL UPPERCASE. Keep English words like "Football", "Champions League", team names, player names as they are.
 - DESCRIPTION: 5-8 sentences, SEO-optimized, include emojis, hashtags at end (lowercase like #futbol #barcelona), NO bold/markdown formatting
 - TAGS: 10-15 tags separated by commas, all lowercase, include player names, team names, relevant topics
 
@@ -596,6 +602,91 @@ def stream_video(filename):
     if os.path.exists(filepath):
         return send_file(filepath, mimetype='video/mp4')
     return jsonify({'error': 'File not found'}), 404
+
+
+# ===== PHASE 5: YOUTUBE UPLOAD ENDPOINTS =====
+
+@app.route('/api/upload/auth-status', methods=['GET'])
+def upload_auth_status():
+    """Check YouTube OAuth2 authentication status."""
+    try:
+        status = youtube_uploader.check_auth_status()
+        return jsonify(status)
+    except Exception as e:
+        return jsonify({'is_authenticated': False, 'message': str(e)})
+
+
+@app.route('/api/upload/authorize', methods=['POST'])
+def upload_authorize():
+    """Start OAuth2 authorization flow (opens browser)."""
+    try:
+        result = youtube_uploader.authorize()
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/upload/video', methods=['POST'])
+def upload_video():
+    """Upload a single video to YouTube."""
+    data = request.json
+    video_filename = data.get('video_filename', '')
+    title = data.get('title', '')
+    description = data.get('description', '')
+    tags = data.get('tags', '')
+    privacy = data.get('privacy', 'private')
+    publish_at = data.get('publish_at', None)
+    thumbnail_base64 = data.get('thumbnail_base64', None)
+    
+    if not video_filename:
+        return jsonify({'success': False, 'error': 'No video file specified'}), 400
+    if not title:
+        return jsonify({'success': False, 'error': 'No title provided'}), 400
+    
+    video_path = os.path.join(video_generator.OUTPUT_DIR, video_filename)
+    if not os.path.exists(video_path):
+        return jsonify({'success': False, 'error': 'Video file not found'}), 404
+    
+    # Save thumbnail if provided
+    thumbnail_path = None
+    if thumbnail_base64:
+        try:
+            thumb_filename = f'thumb_{video_filename.replace(".mp4", ".png")}'
+            thumbnail_path = youtube_uploader.save_thumbnail_from_base64(
+                thumbnail_base64, thumb_filename
+            )
+        except Exception as e:
+            print(f'Thumbnail save failed: {e}')
+    
+    task_id = str(uuid.uuid4())
+    
+    def run_upload():
+        youtube_uploader.upload_video(
+            video_path=video_path,
+            title=title,
+            description=description,
+            tags=tags,
+            privacy=privacy,
+            publish_at=publish_at,
+            thumbnail_path=thumbnail_path,
+            task_id=task_id
+        )
+    
+    thread = threading.Thread(target=run_upload, daemon=True)
+    thread.start()
+    
+    return jsonify({
+        'success': True,
+        'task_id': task_id,
+        'message': 'Upload started'
+    })
+
+
+@app.route('/api/upload/status/<task_id>', methods=['GET'])
+def upload_status(task_id):
+    """Get upload progress."""
+    progress = youtube_uploader.get_progress(task_id)
+    return jsonify(progress)
 
 
 if __name__ == '__main__':

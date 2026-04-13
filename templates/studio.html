@@ -738,6 +738,32 @@
             text-align: center;
         }
 
+        /* ===== Go to Upload link ===== */
+        .go-upload-btn {
+            width: 100%;
+            padding: 0.85rem;
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+            text-decoration: none;
+        }
+
+        .go-upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(239, 68, 68, 0.4);
+            color: white;
+        }
+
         /* Progress bar */
         .generation-progress {
             margin-top: 0.75rem;
@@ -1075,6 +1101,17 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Phase 5: Go to Upload Page -->
+            <div class="controls-section">
+                <h3><i class="fab fa-youtube" style="color: #ef4444;"></i> Upload to YouTube</h3>
+                <a href="/upload" class="go-upload-btn" id="go-upload-btn">
+                    <i class="fas fa-external-link-alt"></i> Open Upload Page
+                </a>
+                <p style="font-size: 0.7rem; color: var(--text-muted); text-align: center; margin-top: 0.5rem;">
+                    Review all videos, edit metadata, schedule uploads
+                </p>
+            </div>
         </div>
     </div>
 
@@ -1109,6 +1146,8 @@
             // Enable generate buttons
             document.getElementById('generate-voiceover-btn').disabled = false;
             document.getElementById('generate-all-btn').disabled = false;
+
+
         }
 
         function showEmptyState() {
@@ -1135,7 +1174,11 @@
                 let statusText = 'Pending';
                 let statusClass = 'status-pending';
 
-                if (item._videoFilename) {
+                if (item._uploadedUrl) {
+                    statusIcon = '✅';
+                    statusText = 'Uploaded';
+                    statusClass = 'status-uploaded';
+                } else if (item._videoFilename) {
                     statusIcon = '🎬';
                     statusText = 'Video done';
                     statusClass = 'status-video-done';
@@ -1944,6 +1987,8 @@
                 }
             }
         }
+
+
 
         // ===== INIT =====
         init();

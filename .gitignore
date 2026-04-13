@@ -32,3 +32,7 @@ Thumbs.db
 
 # Generated output
 output/
+
+# OAuth credentials (NEVER commit these)
+client_secret.json
+token.json

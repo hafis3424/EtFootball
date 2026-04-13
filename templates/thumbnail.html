@@ -1159,12 +1159,16 @@
                 // Build studio data for ALL thumbnails, using saved edits
                 const studioData = thumbnails.map((thumb, idx) => {
                     let itemSpanishText = '';
+                    let itemProdDesc = '';
+                    let itemProdTags = '';
                     if (translationState) {
                         try {
                             const state = JSON.parse(translationState);
                             const videoData = state.translations?.[thumb.video_id];
                             if (videoData) {
                                 itemSpanishText = videoData.final || videoData.english || '';
+                                itemProdDesc = videoData.prodDesc || '';
+                                itemProdTags = videoData.prodTags || '';
                             }
                         } catch (e) { }
                     }
@@ -1177,6 +1181,8 @@
                         title: thumb.title,
                         thumbnail_url: thumb.thumbnail_url,
                         production_title: thumb.production_title || '',
+                        production_description: itemProdDesc,
+                        production_tags: itemProdTags,
                         spanish_text: itemSpanishText,
                         edited_thumbnail_base64: editBase64
                     };

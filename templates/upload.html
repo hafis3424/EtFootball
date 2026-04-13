@@ -1,0 +1,1560 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RafLocalizer - Upload to YouTube</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* ===== Upload Page Layout ===== */
+        .upload-page {
+            margin-top: 70px;
+            padding: 2rem 2.5rem;
+            min-height: calc(100vh - 70px);
+            max-width: 1200px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* ===== Auth & Controls Bar ===== */
+        .upload-top-bar {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            backdrop-filter: blur(10px);
+        }
+
+        .auth-section {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .auth-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 10px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .auth-badge.connected {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.25);
+            color: #34d399;
+        }
+
+        .auth-badge.disconnected {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.25);
+            color: #f87171;
+        }
+
+        .auth-badge i {
+            font-size: 0.9rem;
+        }
+
+        .connect-btn {
+            padding: 0.5rem 1.25rem;
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
+        }
+
+        .connect-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+        }
+
+        .connect-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .global-controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .control-group label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+
+        .control-select {
+            padding: 0.45rem 0.75rem;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 0.8rem;
+            outline: none;
+            cursor: pointer;
+            transition: border-color 0.2s ease;
+        }
+
+        .control-select:focus {
+            border-color: #ef4444;
+        }
+
+        /* ===== Summary Stats ===== */
+        .upload-stats {
+            display: flex;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            flex: 1;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.25rem;
+            text-align: center;
+            transition: all 0.2s ease;
+        }
+
+        .stat-card:hover {
+            background: var(--card-hover);
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 800;
+            line-height: 1;
+            margin-bottom: 0.35rem;
+        }
+
+        .stat-number.ready { color: #10b981; }
+        .stat-number.pending { color: #f59e0b; }
+        .stat-number.uploaded { color: #3b82f6; }
+        .stat-number.total { color: var(--accent); }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        /* ===== Video Cards ===== */
+        .video-cards {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            margin-bottom: 6rem;
+        }
+
+        .upload-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            transition: all 0.25s ease;
+        }
+
+        .upload-card:hover {
+            border-color: rgba(255, 255, 255, 0.12);
+            background: var(--card-hover);
+        }
+
+        .upload-card.uploaded {
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+
+        .upload-card.no-video {
+            opacity: 0.5;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.01);
+        }
+
+        .card-header-left {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .card-number {
+            width: 28px;
+            height: 28px;
+            background: rgba(255, 59, 92, 0.15);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .card-original-title {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            max-width: 500px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .card-status-badge {
+            padding: 0.35rem 0.85rem;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .badge-ready {
+            background: rgba(16, 185, 129, 0.12);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.25);
+        }
+
+        .badge-no-video {
+            background: rgba(239, 68, 68, 0.12);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.25);
+        }
+
+        .badge-uploaded {
+            background: rgba(59, 130, 246, 0.12);
+            color: #60a5fa;
+            border: 1px solid rgba(59, 130, 246, 0.25);
+        }
+
+        .badge-uploading {
+            background: rgba(249, 115, 22, 0.12);
+            color: #fb923c;
+            border: 1px solid rgba(249, 115, 22, 0.25);
+        }
+
+        .card-body {
+            display: grid;
+            grid-template-columns: 340px 1fr;
+            gap: 0;
+        }
+
+        /* Left column — Media */
+        .card-media {
+            padding: 1.25rem;
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .media-thumb {
+            width: 100%;
+            aspect-ratio: 16/9;
+            border-radius: 10px;
+            object-fit: cover;
+            background: var(--bg);
+        }
+
+        .media-video-container {
+            width: 100%;
+            border-radius: 10px;
+            overflow: hidden;
+            background: var(--bg);
+            border: 1px solid var(--border);
+        }
+
+        .media-video-container video {
+            width: 100%;
+            display: block;
+            border-radius: 10px;
+        }
+
+        .no-video-placeholder {
+            width: 100%;
+            aspect-ratio: 16/9;
+            background: var(--bg);
+            border-radius: 10px;
+            border: 2px dashed var(--border);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            gap: 0.5rem;
+        }
+
+        .no-video-placeholder i {
+            font-size: 2rem;
+            opacity: 0.3;
+        }
+
+        .no-video-placeholder span {
+            font-size: 0.75rem;
+        }
+
+        /* Right column — Metadata */
+        .card-meta {
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.85rem;
+        }
+
+        .meta-field {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+        }
+
+        .meta-field label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .meta-field label i {
+            font-size: 0.65rem;
+            color: var(--accent);
+        }
+
+        .meta-input {
+            width: 100%;
+            padding: 0.55rem 0.75rem;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.82rem;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+
+        .meta-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 12px var(--accent-glow);
+        }
+
+        .meta-textarea {
+            width: 100%;
+            padding: 0.55rem 0.75rem;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.82rem;
+            outline: none;
+            resize: vertical;
+            min-height: 70px;
+            max-height: 150px;
+            line-height: 1.5;
+            transition: border-color 0.2s ease;
+        }
+
+        .meta-textarea:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 12px var(--accent-glow);
+        }
+
+        .meta-char-count {
+            font-size: 0.6rem;
+            color: var(--text-muted);
+            text-align: right;
+            margin-top: -0.15rem;
+        }
+
+        .meta-char-count.warn {
+            color: #f59e0b;
+        }
+
+        .meta-char-count.over {
+            color: #ef4444;
+            font-weight: 600;
+        }
+
+        /* Schedule Row */
+        .card-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 1.25rem;
+            border-top: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.01);
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .schedule-section {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .schedule-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .schedule-toggle input[type="checkbox"] {
+            display: none;
+        }
+
+        .toggle-slider {
+            width: 36px;
+            height: 20px;
+            background: var(--border);
+            border-radius: 10px;
+            position: relative;
+            transition: background 0.2s ease;
+            cursor: pointer;
+        }
+
+        .toggle-slider::after {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background: #fff;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.2s ease;
+        }
+
+        .schedule-toggle input:checked + .toggle-slider {
+            background: #ef4444;
+        }
+
+        .schedule-toggle input:checked + .toggle-slider::after {
+            transform: translateX(16px);
+        }
+
+        .schedule-toggle-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+
+        .schedule-inputs {
+            display: none;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .schedule-inputs.visible {
+            display: flex;
+        }
+
+        .schedule-date,
+        .schedule-time {
+            padding: 0.45rem 0.65rem;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 0.78rem;
+            font-family: 'Inter', sans-serif;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+
+        .schedule-date:focus,
+        .schedule-time:focus {
+            border-color: #ef4444;
+        }
+
+        .schedule-date::-webkit-calendar-picker-indicator,
+        .schedule-time::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            cursor: pointer;
+        }
+
+        .schedule-tz {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        .card-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .privacy-select {
+            padding: 0.45rem 0.65rem;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 0.78rem;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .upload-card-btn {
+            padding: 0.55rem 1.25rem;
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
+            box-shadow: 0 3px 12px rgba(239, 68, 68, 0.25);
+        }
+
+        .upload-card-btn:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 5px 20px rgba(239, 68, 68, 0.35);
+        }
+
+        .upload-card-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Card Progress Bar */
+        .card-progress {
+            display: none;
+            padding: 0 1.25rem 1rem;
+        }
+
+        .card-progress.visible {
+            display: block;
+        }
+
+        .card-progress-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .card-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ef4444, #f87171);
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .card-progress-text {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-top: 0.3rem;
+            text-align: center;
+        }
+
+        /* Upload Result */
+        .card-upload-result {
+            display: none;
+            padding: 0 1.25rem 1rem;
+        }
+
+        .card-upload-result.visible {
+            display: block;
+        }
+
+        .result-box {
+            padding: 0.65rem 0.85rem;
+            border-radius: 10px;
+            font-size: 0.78rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .result-box.success {
+            background: rgba(16, 185, 129, 0.08);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            color: #34d399;
+        }
+
+        .result-box.error {
+            background: rgba(239, 68, 68, 0.08);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: #f87171;
+        }
+
+        .result-box a {
+            color: #60a5fa;
+            text-decoration: none;
+            word-break: break-all;
+        }
+
+        .result-box a:hover {
+            text-decoration: underline;
+        }
+
+        .result-schedule-info {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: 0.72rem;
+            color: #f59e0b;
+            width: 100%;
+            margin-top: 0.25rem;
+        }
+
+        /* ===== FAB: Upload All Button ===== */
+        .upload-all-fab {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #dc2626, #ef4444);
+            color: white;
+            border: none;
+            padding: 1rem 2.5rem;
+            border-radius: 50px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            box-shadow: 0 8px 30px rgba(239, 68, 68, 0.4);
+            transition: all 0.3s ease;
+            z-index: 50;
+        }
+
+        .upload-all-fab:hover:not(:disabled) {
+            transform: translateX(-50%) translateY(-3px);
+            box-shadow: 0 12px 40px rgba(239, 68, 68, 0.5);
+        }
+
+        .upload-all-fab:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .upload-all-fab .fab-count {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0.25rem 0.7rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            min-width: 30px;
+            text-align: center;
+        }
+
+        /* Batch progress overlay on FAB */
+        .fab-progress {
+            display: none;
+            position: fixed;
+            bottom: 5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1rem 1.5rem;
+            min-width: 350px;
+            z-index: 51;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .fab-progress.visible {
+            display: block;
+        }
+
+        .fab-progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .fab-progress-label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #ef4444;
+        }
+
+        .fab-progress-count {
+            font-size: 0.8rem;
+            font-weight: 700;
+            background: rgba(239, 68, 68, 0.15);
+            padding: 0.15rem 0.6rem;
+            border-radius: 6px;
+        }
+
+        .fab-progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .fab-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ef4444, #f87171);
+            border-radius: 4px;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .fab-progress-status {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            margin-top: 0.4rem;
+            text-align: center;
+        }
+
+        /* ===== Empty state ===== */
+        .upload-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 5rem 2rem;
+            color: var(--text-muted);
+            text-align: center;
+            gap: 1rem;
+        }
+
+        .upload-empty i {
+            font-size: 4rem;
+            opacity: 0.2;
+        }
+
+        .upload-empty p { font-size: 0.95rem; }
+
+        .upload-empty a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        .upload-empty a:hover {
+            text-decoration: underline;
+        }
+
+        /* ===== Phase 5 badge ===== */
+        .phase5-badge {
+            background: rgba(239, 68, 68, 0.15);
+            color: #ef4444;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        /* ===== Responsive ===== */
+        @media (max-width: 900px) {
+            .upload-page {
+                padding: 1.25rem;
+            }
+
+            .upload-top-bar {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .upload-stats {
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+
+            .card-body {
+                grid-template-columns: 1fr;
+            }
+
+            .card-media {
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+            }
+
+            .card-footer {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="logo">
+            <a href="/"
+                style="display: flex; align-items: center; gap: 0.75rem; text-decoration: none; color: inherit;">
+                <div class="logo-icon">
+                    <i class="fab fa-youtube"></i>
+                </div>
+                <span class="logo-text">Raf<span class="accent">Localizer</span></span>
+            </a>
+        </div>
+        <div class="header-actions">
+            <a href="/studio" class="btn btn-ghost">
+                <i class="fas fa-arrow-left"></i> Back to Studio
+            </a>
+            <span class="phase-badge phase5-badge"><i class="fab fa-youtube"></i> PHASE 5: UPLOAD</span>
+        </div>
+    </header>
+
+    <!-- Upload Page -->
+    <div class="upload-page" id="upload-page">
+        <!-- Top Bar: Auth + Global Controls -->
+        <div class="upload-top-bar">
+            <div class="auth-section">
+                <div class="auth-badge disconnected" id="auth-badge">
+                    <i class="fas fa-circle-notch fa-spin"></i>
+                    <span id="auth-text">Checking...</span>
+                </div>
+                <button class="connect-btn" id="connect-btn" style="display: none;">
+                    <i class="fab fa-youtube"></i> Connect YouTube
+                </button>
+            </div>
+            <div class="global-controls">
+                <div class="control-group">
+                    <label><i class="fas fa-globe"></i> Default Privacy</label>
+                    <select class="control-select" id="global-privacy">
+                        <option value="public">🌍 Public</option>
+                        <option value="unlisted">🔗 Unlisted</option>
+                        <option value="private">🔒 Private</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="upload-stats" id="upload-stats">
+            <div class="stat-card">
+                <div class="stat-number total" id="stat-total">0</div>
+                <div class="stat-label">Total Videos</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number ready" id="stat-ready">0</div>
+                <div class="stat-label">Ready to Upload</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number pending" id="stat-pending">0</div>
+                <div class="stat-label">No Video Yet</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number uploaded" id="stat-uploaded">0</div>
+                <div class="stat-label">Uploaded</div>
+            </div>
+        </div>
+
+        <!-- Video Cards -->
+        <div class="video-cards" id="video-cards">
+            <!-- Cards injected here -->
+        </div>
+    </div>
+
+    <!-- FAB: Upload All -->
+    <button class="upload-all-fab" id="upload-all-fab" disabled>
+        <i class="fas fa-cloud-upload-alt"></i>
+        Upload All
+        <span class="fab-count" id="fab-count">0</span>
+    </button>
+
+    <!-- Batch Progress -->
+    <div class="fab-progress" id="fab-progress">
+        <div class="fab-progress-header">
+            <span class="fab-progress-label" id="fab-progress-label">Uploading...</span>
+            <span class="fab-progress-count" id="fab-progress-count">0/0</span>
+        </div>
+        <div class="fab-progress-bar">
+            <div class="fab-progress-fill" id="fab-progress-fill"></div>
+        </div>
+        <div class="fab-progress-status" id="fab-progress-status">Preparing...</div>
+    </div>
+
+    <script>
+        // ===== STATE =====
+        let studioData = [];
+        let isYouTubeAuthenticated = false;
+        let isBatchUploading = false;
+
+        // ===== INIT =====
+        async function init() {
+            const stored = sessionStorage.getItem('studioData');
+            if (stored) {
+                studioData = JSON.parse(stored);
+            }
+
+            if (studioData.length === 0) {
+                showEmptyState();
+                return;
+            }
+
+            renderCards();
+            updateStats();
+            await checkYouTubeAuth();
+        }
+
+        function showEmptyState() {
+            document.getElementById('video-cards').innerHTML = `
+                <div class="upload-empty">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <p>No videos to upload.</p>
+                    <p>Go to <a href="/studio">Studio</a> and generate videos first, then come here to upload.</p>
+                </div>
+            `;
+            document.getElementById('upload-all-fab').style.display = 'none';
+            document.getElementById('upload-stats').style.display = 'none';
+        }
+
+        // ===== RENDER CARDS =====
+        function renderCards() {
+            const container = document.getElementById('video-cards');
+            container.innerHTML = '';
+
+            studioData.forEach((item, index) => {
+                const hasVideo = !!item._videoFilename;
+                const isUploaded = !!item._uploadedUrl;
+                const thumbSrc = item.edited_thumbnail_base64 || item.thumbnail_url || '';
+
+                // Determine badge
+                let badgeHtml = '';
+                if (isUploaded) {
+                    badgeHtml = '<span class="card-status-badge badge-uploaded"><i class="fas fa-check-circle"></i> Uploaded</span>';
+                } else if (hasVideo) {
+                    badgeHtml = '<span class="card-status-badge badge-ready"><i class="fas fa-check"></i> Ready</span>';
+                } else {
+                    badgeHtml = '<span class="card-status-badge badge-no-video"><i class="fas fa-exclamation-triangle"></i> No Video</span>';
+                }
+
+                // Video player or placeholder
+                let videoHtml = '';
+                if (hasVideo) {
+                    videoHtml = `
+                        <div class="media-video-container">
+                            <video controls preload="metadata" src="/api/video/stream/${item._videoFilename}"></video>
+                        </div>
+                    `;
+                } else {
+                    videoHtml = `
+                        <div class="no-video-placeholder">
+                            <i class="fas fa-film"></i>
+                            <span>Video not generated</span>
+                        </div>
+                    `;
+                }
+
+                // Pre-fill metadata
+                const title = item.production_title || item.title || '';
+                const desc = item.production_description || '';
+                const tags = item.production_tags || '';
+
+                // Get timezone abbreviation
+                const tzName = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                const tzAbbr = new Date().toLocaleTimeString('en-US', { timeZoneName: 'short' }).split(' ').pop();
+
+                // Set minimum date to now (YouTube doesn't allow past scheduling)
+                const now = new Date();
+                const minDate = now.toISOString().split('T')[0];
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                const tomorrowDate = tomorrow.toISOString().split('T')[0];
+                const defaultTime = '14:00';
+
+                const card = document.createElement('div');
+                card.className = `upload-card ${isUploaded ? 'uploaded' : ''} ${!hasVideo ? 'no-video' : ''}`;
+                card.id = `card-${index}`;
+
+                card.innerHTML = `
+                    <div class="card-header">
+                        <div class="card-header-left">
+                            <div class="card-number">${index + 1}</div>
+                            <span class="card-original-title" title="${escapeHtml(item.title || '')}">${escapeHtml(item.title || 'Untitled')}</span>
+                        </div>
+                        ${badgeHtml}
+                    </div>
+
+                    <div class="card-body">
+                        <div class="card-media">
+                            <img class="media-thumb" src="${thumbSrc}" alt="Thumbnail"
+                                 onerror="this.src='${item.thumbnail_url || ''}'">
+                            ${videoHtml}
+                        </div>
+
+                        <div class="card-meta">
+                            <div class="meta-field">
+                                <label><i class="fas fa-heading"></i> Title</label>
+                                <input type="text" class="meta-input" id="title-${index}" 
+                                    value="${escapeHtml(title)}" maxlength="100"
+                                    oninput="updateTitleCount(${index})">
+                                <div class="meta-char-count" id="title-count-${index}">${title.length}/100</div>
+                            </div>
+
+                            <div class="meta-field">
+                                <label><i class="fas fa-align-left"></i> Description</label>
+                                <textarea class="meta-textarea" id="desc-${index}" 
+                                    maxlength="5000"
+                                    oninput="updateDescCount(${index})">${escapeHtml(desc)}</textarea>
+                                <div class="meta-char-count" id="desc-count-${index}">${desc.length}/5000</div>
+                            </div>
+
+                            <div class="meta-field">
+                                <label><i class="fas fa-tags"></i> Tags</label>
+                                <input type="text" class="meta-input" id="tags-${index}" 
+                                    value="${escapeHtml(tags)}"
+                                    placeholder="tag1, tag2, tag3">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card-footer">
+                        <div class="schedule-section">
+                            <label class="schedule-toggle">
+                                <input type="checkbox" id="schedule-toggle-${index}" 
+                                    onchange="toggleSchedule(${index})" checked>
+                                <span class="toggle-slider"></span>
+                                <span class="schedule-toggle-label">📅 Schedule</span>
+                            </label>
+                            <div class="schedule-inputs visible" id="schedule-inputs-${index}">
+                                <input type="date" class="schedule-date" id="schedule-date-${index}" 
+                                    min="${minDate}" value="${tomorrowDate}">
+                                <input type="time" class="schedule-time" id="schedule-time-${index}" 
+                                    value="${defaultTime}" step="900">
+                                <span class="schedule-tz">${tzAbbr}</span>
+                            </div>
+                        </div>
+
+                        <div class="card-actions">
+                            <select class="privacy-select" id="privacy-${index}" disabled>
+                                <option value="private" selected>🔒 Private</option>
+                                <option value="unlisted">🔗 Unlisted</option>
+                                <option value="public">🌍 Public</option>
+                            </select>
+                            <button class="upload-card-btn" id="upload-btn-${index}" 
+                                ${!hasVideo || isUploaded ? 'disabled' : ''}
+                                onclick="uploadSingle(${index})">
+                                <i class="fab fa-youtube"></i> 
+                                ${isUploaded ? 'Re-Upload' : 'Upload'}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="card-progress" id="progress-${index}">
+                        <div class="card-progress-bar">
+                            <div class="card-progress-fill" id="progress-fill-${index}"></div>
+                        </div>
+                        <div class="card-progress-text" id="progress-text-${index}">Preparing...</div>
+                    </div>
+
+                    <div class="card-upload-result" id="result-${index}">
+                        <!-- Result injected here -->
+                    </div>
+                `;
+
+                container.appendChild(card);
+
+                // If already uploaded, show result
+                if (isUploaded) {
+                    showUploadResult(index, {
+                        success: true,
+                        video_url: item._uploadedUrl,
+                        video_id: item._youtubeVideoId
+                    });
+                }
+            });
+
+            // Listen for global privacy changes
+            document.getElementById('global-privacy').addEventListener('change', (e) => {
+                const val = e.target.value;
+                studioData.forEach((_, i) => {
+                    const select = document.getElementById(`privacy-${i}`);
+                    if (select) select.value = val;
+                });
+            });
+        }
+
+        // ===== HELPERS =====
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML.replace(/"/g, '&quot;');
+        }
+
+        function updateTitleCount(index) {
+            const input = document.getElementById(`title-${index}`);
+            const counter = document.getElementById(`title-count-${index}`);
+            const len = input.value.length;
+            counter.textContent = `${len}/100`;
+            counter.className = `meta-char-count ${len > 95 ? 'warn' : ''} ${len >= 100 ? 'over' : ''}`;
+        }
+
+        function updateDescCount(index) {
+            const textarea = document.getElementById(`desc-${index}`);
+            const counter = document.getElementById(`desc-count-${index}`);
+            const len = textarea.value.length;
+            counter.textContent = `${len}/5000`;
+            counter.className = `meta-char-count ${len > 4800 ? 'warn' : ''} ${len >= 5000 ? 'over' : ''}`;
+        }
+
+        function toggleSchedule(index) {
+            const toggle = document.getElementById(`schedule-toggle-${index}`);
+            const inputs = document.getElementById(`schedule-inputs-${index}`);
+            const privacySelect = document.getElementById(`privacy-${index}`);
+
+            if (toggle.checked) {
+                inputs.classList.add('visible');
+                // YouTube requires scheduled uploads to be private initially
+                privacySelect.value = 'private';
+                privacySelect.disabled = true;
+
+                // Default to tomorrow if no date set
+                const dateInput = document.getElementById(`schedule-date-${index}`);
+                if (!dateInput.value) {
+                    const tomorrow = new Date();
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    dateInput.value = tomorrow.toISOString().split('T')[0];
+                }
+            } else {
+                inputs.classList.remove('visible');
+                privacySelect.disabled = false;
+            }
+        }
+
+        function getScheduleISO(index) {
+            const toggle = document.getElementById(`schedule-toggle-${index}`);
+            if (!toggle || !toggle.checked) return null;
+
+            const date = document.getElementById(`schedule-date-${index}`).value;
+            const time = document.getElementById(`schedule-time-${index}`).value;
+
+            if (!date || !time) return null;
+
+            // Create date in local timezone, then convert to ISO
+            const localDate = new Date(`${date}T${time}:00`);
+
+            // Ensure it's in the future
+            if (localDate <= new Date()) {
+                return null;
+            }
+
+            return localDate.toISOString();
+        }
+
+        function updateStats() {
+            const total = studioData.length;
+            const ready = studioData.filter(i => i._videoFilename && !i._uploadedUrl).length;
+            const pending = studioData.filter(i => !i._videoFilename).length;
+            const uploaded = studioData.filter(i => i._uploadedUrl).length;
+
+            document.getElementById('stat-total').textContent = total;
+            document.getElementById('stat-ready').textContent = ready;
+            document.getElementById('stat-pending').textContent = pending;
+            document.getElementById('stat-uploaded').textContent = uploaded;
+
+            // Update FAB
+            const fab = document.getElementById('upload-all-fab');
+            document.getElementById('fab-count').textContent = ready;
+            fab.disabled = ready === 0 || !isYouTubeAuthenticated;
+        }
+
+        // ===== YOUTUBE AUTH =====
+        async function checkYouTubeAuth() {
+            try {
+                const res = await fetch('/api/upload/auth-status');
+                const data = await res.json();
+
+                const badge = document.getElementById('auth-badge');
+                const authText = document.getElementById('auth-text');
+                const connectBtn = document.getElementById('connect-btn');
+
+                if (data.is_authenticated) {
+                    badge.className = 'auth-badge connected';
+                    badge.innerHTML = `<i class="fas fa-check-circle"></i> <span>${data.message || 'Connected'}</span>`;
+                    connectBtn.style.display = 'none';
+                    isYouTubeAuthenticated = true;
+                    enableAllUploadButtons();
+                } else {
+                    badge.className = 'auth-badge disconnected';
+                    badge.innerHTML = `<i class="fas fa-exclamation-circle"></i> <span>${data.message || 'Not connected'}</span>`;
+                    connectBtn.style.display = 'flex';
+                    isYouTubeAuthenticated = false;
+                }
+
+                updateStats();
+            } catch (err) {
+                console.error('Auth check failed:', err);
+            }
+        }
+
+        function enableAllUploadButtons() {
+            studioData.forEach((item, i) => {
+                const btn = document.getElementById(`upload-btn-${i}`);
+                if (btn && item._videoFilename) {
+                    btn.disabled = false;
+                }
+            });
+        }
+
+        document.getElementById('connect-btn').addEventListener('click', async () => {
+            const btn = document.getElementById('connect-btn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Opening browser...';
+
+            try {
+                const res = await fetch('/api/upload/authorize', { method: 'POST' });
+                const data = await res.json();
+
+                if (data.success) {
+                    await checkYouTubeAuth();
+                } else {
+                    alert('Authorization failed: ' + (data.error || 'Unknown error'));
+                }
+            } catch (err) {
+                alert('Authorization failed: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fab fa-youtube"></i> Connect YouTube';
+            }
+        });
+
+        // ===== SINGLE UPLOAD =====
+        async function uploadSingle(index) {
+            if (!isYouTubeAuthenticated) {
+                alert('Please connect your YouTube account first.');
+                return;
+            }
+
+            const item = studioData[index];
+            if (!item._videoFilename) {
+                alert('This video has not been generated yet.');
+                return;
+            }
+
+            // Get metadata from inputs
+            const title = document.getElementById(`title-${index}`).value.trim();
+            const description = document.getElementById(`desc-${index}`).value.trim();
+            const tags = document.getElementById(`tags-${index}`).value.trim();
+            const privacy = document.getElementById(`privacy-${index}`).value;
+            const publishAt = getScheduleISO(index);
+
+            if (!title) {
+                alert('Please enter a title.');
+                return;
+            }
+
+            // Check schedule validity
+            const scheduleToggle = document.getElementById(`schedule-toggle-${index}`);
+            if (scheduleToggle && scheduleToggle.checked) {
+                if (!publishAt) {
+                    alert('Please set a valid future date and time for scheduling.');
+                    return;
+                }
+            }
+
+            // Confirm
+            let confirmMsg = `Upload to YouTube?\n\nTitle: ${title}\nPrivacy: ${privacy}`;
+            if (publishAt) {
+                const schedDate = new Date(publishAt);
+                confirmMsg += `\nScheduled: ${schedDate.toLocaleString()}`;
+            }
+
+            if (!confirm(confirmMsg)) return;
+
+            const btn = document.getElementById(`upload-btn-${index}`);
+            const progressDiv = document.getElementById(`progress-${index}`);
+            const progressFill = document.getElementById(`progress-fill-${index}`);
+            const progressText = document.getElementById(`progress-text-${index}`);
+            const resultDiv = document.getElementById(`result-${index}`);
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
+            progressDiv.classList.add('visible');
+            progressFill.style.width = '0%';
+            resultDiv.classList.remove('visible');
+
+            // Update badge to uploading
+            const card = document.getElementById(`card-${index}`);
+            const badge = card.querySelector('.card-status-badge');
+            badge.className = 'card-status-badge badge-uploading';
+            badge.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading';
+
+            try {
+                const res = await fetch('/api/upload/video', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        video_filename: item._videoFilename,
+                        title: title,
+                        description: description,
+                        tags: tags,
+                        privacy: publishAt ? 'private' : privacy,
+                        publish_at: publishAt,
+                        thumbnail_base64: item.edited_thumbnail_base64 || null
+                    })
+                });
+
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error);
+
+                // Poll progress
+                await pollUploadProgress(data.task_id, index);
+
+            } catch (err) {
+                progressText.textContent = '❌ ' + err.message;
+                badge.className = 'card-status-badge badge-ready';
+                badge.innerHTML = '<i class="fas fa-check"></i> Ready';
+                showUploadResult(index, { success: false, error: err.message });
+
+                setTimeout(() => progressDiv.classList.remove('visible'), 3000);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fab fa-youtube"></i> Re-Upload';
+            }
+        }
+
+        async function pollUploadProgress(taskId, index) {
+            const progressFill = document.getElementById(`progress-fill-${index}`);
+            const progressText = document.getElementById(`progress-text-${index}`);
+            const progressDiv = document.getElementById(`progress-${index}`);
+
+            while (true) {
+                await new Promise(r => setTimeout(r, 1000));
+
+                const res = await fetch('/api/upload/status/' + taskId);
+                const progress = await res.json();
+
+                progressFill.style.width = progress.progress + '%';
+                progressText.textContent = progress.message || `${progress.progress}%`;
+
+                if (progress.status === 'done') {
+                    const result = progress.result;
+                    if (result) {
+                        // Save to studioData
+                        studioData[index]._uploadedUrl = result.video_url;
+                        studioData[index]._youtubeVideoId = result.video_id;
+                        sessionStorage.setItem('studioData', JSON.stringify(studioData));
+
+                        // Update card UI
+                        const card = document.getElementById(`card-${index}`);
+                        card.classList.add('uploaded');
+                        card.classList.remove('no-video');
+                        const badge = card.querySelector('.card-status-badge');
+                        badge.className = 'card-status-badge badge-uploaded';
+                        badge.innerHTML = '<i class="fas fa-check-circle"></i> Uploaded';
+
+                        showUploadResult(index, result);
+                    }
+
+                    updateStats();
+                    setTimeout(() => progressDiv.classList.remove('visible'), 2000);
+                    return;
+                }
+
+                if (progress.status === 'error') {
+                    throw new Error(progress.message);
+                }
+            }
+        }
+
+        function showUploadResult(index, result) {
+            const resultDiv = document.getElementById(`result-${index}`);
+            resultDiv.classList.add('visible');
+
+            if (result.success !== false) {
+                let scheduleHtml = '';
+                if (result.scheduled) {
+                    const schedDate = new Date(result.scheduled);
+                    scheduleHtml = `
+                        <div class="result-schedule-info">
+                            <i class="fas fa-calendar-alt"></i> 
+                            Scheduled: ${schedDate.toLocaleDateString()} at ${schedDate.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
+                        </div>
+                    `;
+                }
+                resultDiv.innerHTML = `
+                    <div class="result-box success">
+                        <i class="fas fa-check-circle"></i>
+                        <span>Uploaded!</span>
+                        <a href="${result.video_url}" target="_blank">${result.video_url}</a>
+                        ${scheduleHtml}
+                    </div>
+                `;
+            } else {
+                resultDiv.innerHTML = `
+                    <div class="result-box error">
+                        <i class="fas fa-times-circle"></i>
+                        <span>${result.error || 'Upload failed'}</span>
+                    </div>
+                `;
+            }
+        }
+
+        // ===== BATCH UPLOAD =====
+        document.getElementById('upload-all-fab').addEventListener('click', () => batchUpload());
+
+        async function batchUpload() {
+            if (isBatchUploading) return;
+            if (!isYouTubeAuthenticated) {
+                alert('Please connect your YouTube account first.');
+                return;
+            }
+
+            const readyVideos = studioData
+                .map((item, i) => ({ item, index: i }))
+                .filter(({ item }) => item._videoFilename && !item._uploadedUrl);
+
+            if (readyVideos.length === 0) {
+                alert('No videos ready to upload.');
+                return;
+            }
+
+            if (!confirm(`Upload ${readyVideos.length} video(s) to YouTube?`)) return;
+
+            isBatchUploading = true;
+            const fab = document.getElementById('upload-all-fab');
+            const fabProgress = document.getElementById('fab-progress');
+            const fabFill = document.getElementById('fab-progress-fill');
+            const fabLabel = document.getElementById('fab-progress-label');
+            const fabCount = document.getElementById('fab-progress-count');
+            const fabStatus = document.getElementById('fab-progress-status');
+
+            fab.disabled = true;
+            fab.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
+            fabProgress.classList.add('visible');
+
+            let completed = 0;
+            let errors = [];
+
+            for (let idx = 0; idx < readyVideos.length; idx++) {
+                const { item, index } = readyVideos[idx];
+
+                fabCount.textContent = `${idx + 1}/${readyVideos.length}`;
+                fabFill.style.width = `${(idx / readyVideos.length) * 100}%`;
+                fabLabel.textContent = `📤 Uploading ${idx + 1}/${readyVideos.length}`;
+
+                const title = document.getElementById(`title-${index}`).value.trim() || item.title || 'Untitled';
+                fabStatus.textContent = title.substring(0, 50) + '...';
+
+                try {
+                    // Get metadata from card inputs
+                    const description = document.getElementById(`desc-${index}`).value.trim();
+                    const tags = document.getElementById(`tags-${index}`).value.trim();
+                    const privacy = document.getElementById(`privacy-${index}`).value;
+                    const publishAt = getScheduleISO(index);
+
+                    const btn = document.getElementById(`upload-btn-${index}`);
+                    const progressDiv = document.getElementById(`progress-${index}`);
+                    const progressFill = document.getElementById(`progress-fill-${index}`);
+                    const progressText = document.getElementById(`progress-text-${index}`);
+
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
+                    progressDiv.classList.add('visible');
+                    progressFill.style.width = '0%';
+
+                    // Update badge
+                    const card = document.getElementById(`card-${index}`);
+                    const badge = card.querySelector('.card-status-badge');
+                    badge.className = 'card-status-badge badge-uploading';
+                    badge.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading';
+
+                    const res = await fetch('/api/upload/video', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            video_filename: item._videoFilename,
+                            title: title,
+                            description: description,
+                            tags: tags,
+                            privacy: publishAt ? 'private' : privacy,
+                            publish_at: publishAt,
+                            thumbnail_base64: item.edited_thumbnail_base64 || null
+                        })
+                    });
+
+                    const data = await res.json();
+                    if (!data.success) throw new Error(data.error);
+
+                    await pollUploadProgress(data.task_id, index);
+                    completed++;
+
+                    btn.innerHTML = '<i class="fab fa-youtube"></i> Re-Upload';
+
+                } catch (err) {
+                    errors.push(`Video ${index + 1}: ${err.message}`);
+                    const card = document.getElementById(`card-${index}`);
+                    const badge = card.querySelector('.card-status-badge');
+                    badge.className = 'card-status-badge badge-ready';
+                    badge.innerHTML = '<i class="fas fa-check"></i> Ready';
+                    showUploadResult(index, { success: false, error: err.message });
+                }
+            }
+
+            // Done
+            fabFill.style.width = '100%';
+            isBatchUploading = false;
+
+            if (errors.length > 0) {
+                fabLabel.textContent = `⚠️ Done with ${errors.length} error(s)`;
+                fabStatus.textContent = errors[0];
+            } else {
+                fabLabel.textContent = '✅ All Uploaded!';
+                fabStatus.textContent = `${completed} video(s) uploaded successfully`;
+            }
+
+            fab.disabled = false;
+            fab.innerHTML = `<i class="fas fa-cloud-upload-alt"></i> Upload All <span class="fab-count" id="fab-count">0</span>`;
+            updateStats();
+
+            setTimeout(() => {
+                fabProgress.classList.remove('visible');
+            }, 5000);
+        }
+
+        // ===== INIT =====
+        init();
+    </script>
+</body>
+
+</html>
