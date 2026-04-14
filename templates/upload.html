@@ -921,9 +921,13 @@
 
         // ===== INIT =====
         async function init() {
-            const stored = sessionStorage.getItem('studioData');
-            if (stored) {
-                studioData = JSON.parse(stored);
+            // Load from IndexedDB (supports large base64 thumbnails)
+            try {
+                studioData = await loadStudioDataIDB() || [];
+            } catch(e) {
+                console.warn('IndexedDB load failed, trying sessionStorage fallback:', e);
+                const stored = sessionStorage.getItem('studioData');
+                if (stored) studioData = JSON.parse(stored);
             }
 
             if (studioData.length === 0) {
@@ -1373,7 +1377,7 @@
                         // Save to studioData
                         studioData[index]._uploadedUrl = result.video_url;
                         studioData[index]._youtubeVideoId = result.video_id;
-                        sessionStorage.setItem('studioData', JSON.stringify(studioData));
+                        saveStudioDataIDB(studioData);
 
                         // Update card UI
                         const card = document.getElementById(`card-${index}`);
@@ -1550,6 +1554,43 @@
             setTimeout(() => {
                 fabProgress.classList.remove('visible');
             }, 5000);
+        }
+
+        // ===== IndexedDB helpers for large studioData (avoids sessionStorage quota) =====
+        function openStudioDB() {
+            return new Promise((resolve, reject) => {
+                const req = indexedDB.open('RafLocalizerDB', 1);
+                req.onupgradeneeded = () => {
+                    const db = req.result;
+                    if (!db.objectStoreNames.contains('appData')) {
+                        db.createObjectStore('appData');
+                    }
+                };
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        function saveStudioDataIDB(data) {
+            return openStudioDB().then(db => {
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction('appData', 'readwrite');
+                    tx.objectStore('appData').put(data, 'studioData');
+                    tx.oncomplete = () => { db.close(); resolve(); };
+                    tx.onerror = () => { db.close(); reject(tx.error); };
+                });
+            });
+        }
+
+        function loadStudioDataIDB() {
+            return openStudioDB().then(db => {
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction('appData', 'readonly');
+                    const req = tx.objectStore('appData').get('studioData');
+                    req.onsuccess = () => { db.close(); resolve(req.result); };
+                    req.onerror = () => { db.close(); reject(req.error); };
+                });
+            });
         }
 
         // ===== INIT =====

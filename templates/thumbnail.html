@@ -1188,17 +1188,25 @@
                     };
                 });
 
-                sessionStorage.setItem('studioData', JSON.stringify(studioData));
-
                 const editedCount = Object.keys(savedEdits).length;
                 const totalCount = thumbnails.length;
 
                 const btn = document.getElementById('send-to-studio-btn');
-                btn.innerHTML = `<i class="fas fa-check"></i> Sending ${editedCount}/${totalCount}...`;
+                btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Saving ${editedCount}/${totalCount}...`;
+                btn.disabled = true;
 
-                setTimeout(() => {
-                    window.location.href = '/studio';
-                }, 500);
+                // Use IndexedDB instead of sessionStorage to avoid quota errors with large base64 thumbnails
+                saveStudioDataIDB(studioData).then(() => {
+                    btn.innerHTML = `<i class="fas fa-check"></i> Sent!`;
+                    setTimeout(() => {
+                        window.location.href = '/studio';
+                    }, 300);
+                }).catch(err => {
+                    console.error('Failed to save studio data:', err);
+                    alert('Failed to save data: ' + err.message);
+                    btn.disabled = false;
+                    btn.innerHTML = `<i class="fas fa-paper-plane"></i> Send to Studio`;
+                });
             });
         }
 
@@ -1605,6 +1613,32 @@
             document.getElementById('select-tool-btn').classList.add('active');
 
             renderCanvas();
+        }
+
+        // ===== IndexedDB helpers for large studioData (avoids sessionStorage quota) =====
+        function openStudioDB() {
+            return new Promise((resolve, reject) => {
+                const req = indexedDB.open('RafLocalizerDB', 1);
+                req.onupgradeneeded = () => {
+                    const db = req.result;
+                    if (!db.objectStoreNames.contains('appData')) {
+                        db.createObjectStore('appData');
+                    }
+                };
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        function saveStudioDataIDB(data) {
+            return openStudioDB().then(db => {
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction('appData', 'readwrite');
+                    tx.objectStore('appData').put(data, 'studioData');
+                    tx.oncomplete = () => { db.close(); resolve(); };
+                    tx.onerror = () => { db.close(); reject(tx.error); };
+                });
+            });
         }
 
         // Initialize
