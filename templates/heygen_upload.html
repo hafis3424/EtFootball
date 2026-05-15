@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RafLocalizer - HeyGen YouTube Upload</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        .upload-page{margin-top:70px;padding:2rem 2.5rem;min-height:calc(100vh - 70px);max-width:1200px;margin-left:auto;margin-right:auto}
+        .upload-top-bar{background:var(--card-bg);border:1px solid var(--border);border-radius:16px;padding:1.25rem 1.5rem;margin-bottom:2rem;display:flex;align-items:center;justify-content:space-between;gap:1.5rem;flex-wrap:wrap;backdrop-filter:blur(10px)}
+        .auth-section{display:flex;align-items:center;gap:1rem}
+        .auth-badge{display:flex;align-items:center;gap:.5rem;padding:.5rem 1rem;border-radius:10px;font-size:.8rem;font-weight:600}
+        .auth-badge.connected{background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.25);color:#34d399}
+        .auth-badge.disconnected{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);color:#f87171}
+        .connect-btn{padding:.5rem 1.25rem;background:linear-gradient(135deg,#ef4444,#dc2626);border:none;border-radius:10px;color:#fff;font-size:.8rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:.5rem;transition:all .2s}
+        .connect-btn:hover{transform:translateY(-1px);box-shadow:0 4px 15px rgba(239,68,68,.3)}
+        .connect-btn:disabled{opacity:.6;cursor:not-allowed;transform:none}
+        .global-controls{display:flex;align-items:center;gap:1rem}
+        .control-group{display:flex;align-items:center;gap:.5rem}
+        .control-group label{font-size:.75rem;font-weight:500;color:var(--text-muted);white-space:nowrap}
+        .control-select{padding:.45rem .75rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.8rem;outline:none;cursor:pointer}
+        .upload-stats{display:flex;gap:1.5rem;margin-bottom:2rem}
+        .stat-card{flex:1;background:var(--card-bg);border:1px solid var(--border);border-radius:14px;padding:1.25rem;text-align:center;transition:all .2s}
+        .stat-card:hover{background:var(--card-hover)}
+        .stat-number{font-size:2rem;font-weight:800;line-height:1;margin-bottom:.35rem}
+        .stat-number.ready{color:#10b981}.stat-number.pending{color:#f59e0b}.stat-number.uploaded{color:#3b82f6}.stat-number.total{color:#a78bfa}
+        .stat-label{font-size:.75rem;color:var(--text-muted);font-weight:500}
+        .video-cards{display:flex;flex-direction:column;gap:1.25rem;margin-bottom:6rem}
+        .upload-card{background:var(--card-bg);border:1px solid var(--border);border-radius:16px;overflow:hidden;transition:all .25s}
+        .upload-card:hover{border-color:rgba(255,255,255,.12);background:var(--card-hover)}
+        .upload-card.uploaded{border-color:rgba(16,185,129,.3)}
+        .upload-card.no-video{opacity:.7}
+        .card-header{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;border-bottom:1px solid var(--border);background:rgba(255,255,255,.01)}
+        .card-header-left{display:flex;align-items:center;gap:.75rem}
+        .card-number{width:28px;height:28px;background:rgba(139,92,246,.15);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;color:#a78bfa}
+        .card-original-title{font-size:.8rem;color:var(--text-muted);max-width:500px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .card-status-badge{padding:.35rem .85rem;border-radius:20px;font-size:.7rem;font-weight:600;display:flex;align-items:center;gap:.4rem}
+        .badge-ready{background:rgba(16,185,129,.12);color:#34d399;border:1px solid rgba(16,185,129,.25)}
+        .badge-no-video{background:rgba(249,115,22,.12);color:#fb923c;border:1px solid rgba(249,115,22,.25)}
+        .badge-uploaded{background:rgba(59,130,246,.12);color:#60a5fa;border:1px solid rgba(59,130,246,.25)}
+        .badge-uploading{background:rgba(249,115,22,.12);color:#fb923c;border:1px solid rgba(249,115,22,.25)}
+        .card-body{display:grid;grid-template-columns:340px 1fr;gap:0}
+        .card-media{padding:1.25rem;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:.75rem}
+        .media-thumb{width:100%;aspect-ratio:16/9;border-radius:10px;object-fit:cover;background:var(--bg)}
+        .media-video-container{width:100%;border-radius:10px;overflow:hidden;background:var(--bg);border:1px solid var(--border)}
+        .media-video-container video{width:100%;display:block;border-radius:10px}
+        .no-video-placeholder{width:100%;aspect-ratio:16/9;background:var(--bg);border-radius:10px;border:2px dashed rgba(139,92,246,.3);display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--text-muted);gap:.5rem;cursor:pointer;transition:all .2s}
+        .no-video-placeholder:hover{border-color:#a78bfa;background:rgba(139,92,246,.05)}
+        .no-video-placeholder i{font-size:2rem;opacity:.4;color:#a78bfa}
+        .no-video-placeholder span{font-size:.75rem}
+        .browse-btn{padding:.45rem 1rem;background:linear-gradient(135deg,#8b5cf6,#7c3aed);border:none;border-radius:8px;color:#fff;font-size:.75rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:.4rem;transition:all .2s;margin-top:.25rem}
+        .browse-btn:hover{transform:translateY(-1px);box-shadow:0 3px 10px rgba(139,92,246,.3)}
+        .card-meta{padding:1.25rem;display:flex;flex-direction:column;gap:.85rem}
+        .meta-field{display:flex;flex-direction:column;gap:.3rem}
+        .meta-field label{font-size:.7rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;display:flex;align-items:center;gap:.4rem}
+        .meta-field label i{font-size:.65rem;color:#a78bfa}
+        .meta-input{width:100%;padding:.55rem .75rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;font-size:.82rem;outline:none;transition:border-color .2s}
+        .meta-input:focus{border-color:#a78bfa;box-shadow:0 0 12px rgba(139,92,246,.2)}
+        .meta-textarea{width:100%;padding:.55rem .75rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;font-size:.82rem;outline:none;resize:vertical;min-height:70px;max-height:150px;line-height:1.5;transition:border-color .2s}
+        .meta-textarea:focus{border-color:#a78bfa;box-shadow:0 0 12px rgba(139,92,246,.2)}
+        .meta-char-count{font-size:.6rem;color:var(--text-muted);text-align:right;margin-top:-.15rem}
+        .meta-char-count.warn{color:#f59e0b}.meta-char-count.over{color:#ef4444;font-weight:600}
+        .card-footer{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;border-top:1px solid var(--border);background:rgba(255,255,255,.01);gap:1rem;flex-wrap:wrap}
+        .schedule-section{display:flex;align-items:center;gap:.75rem}
+        .schedule-toggle{display:flex;align-items:center;gap:.5rem;cursor:pointer;user-select:none}
+        .schedule-toggle input[type="checkbox"]{display:none}
+        .toggle-slider{width:36px;height:20px;background:var(--border);border-radius:10px;position:relative;transition:background .2s;cursor:pointer}
+        .toggle-slider::after{content:'';position:absolute;width:16px;height:16px;background:#fff;border-radius:50%;top:2px;left:2px;transition:transform .2s}
+        .schedule-toggle input:checked+.toggle-slider{background:#8b5cf6}
+        .schedule-toggle input:checked+.toggle-slider::after{transform:translateX(16px)}
+        .schedule-toggle-label{font-size:.75rem;font-weight:500;color:var(--text-muted)}
+        .schedule-inputs{display:none;align-items:center;gap:.5rem}
+        .schedule-inputs.visible{display:flex}
+        .schedule-date,.schedule-time{padding:.45rem .65rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.78rem;font-family:'Inter',sans-serif;outline:none}
+        .schedule-date:focus,.schedule-time:focus{border-color:#8b5cf6}
+        .schedule-date::-webkit-calendar-picker-indicator,.schedule-time::-webkit-calendar-picker-indicator{filter:invert(1);cursor:pointer}
+        .schedule-tz{font-size:.7rem;color:var(--text-muted)}
+        .card-actions{display:flex;align-items:center;gap:.75rem}
+        .privacy-select{padding:.45rem .65rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.78rem;outline:none;cursor:pointer}
+        .upload-card-btn{padding:.55rem 1.25rem;background:linear-gradient(135deg,#ef4444,#dc2626);border:none;border-radius:10px;color:#fff;font-size:.82rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:.5rem;transition:all .2s;box-shadow:0 3px 12px rgba(239,68,68,.25)}
+        .upload-card-btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 5px 20px rgba(239,68,68,.35)}
+        .upload-card-btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+        .card-progress{display:none;padding:0 1.25rem 1rem}.card-progress.visible{display:block}
+        .card-progress-bar{width:100%;height:6px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden}
+        .card-progress-fill{height:100%;background:linear-gradient(90deg,#8b5cf6,#a78bfa);border-radius:3px;width:0%;transition:width .3s}
+        .card-progress-text{font-size:.7rem;color:var(--text-muted);margin-top:.3rem;text-align:center}
+        .card-upload-result{display:none;padding:0 1.25rem 1rem}.card-upload-result.visible{display:block}
+        .result-box{padding:.65rem .85rem;border-radius:10px;font-size:.78rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+        .result-box.success{background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);color:#34d399}
+        .result-box.error{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);color:#f87171}
+        .result-box a{color:#60a5fa;text-decoration:none;word-break:break-all}.result-box a:hover{text-decoration:underline}
+        .result-schedule-info{display:flex;align-items:center;gap:.3rem;font-size:.72rem;color:#f59e0b;width:100%;margin-top:.25rem}
+        .upload-all-fab{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;border:none;padding:1rem 2.5rem;border-radius:50px;font-size:1rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:.75rem;box-shadow:0 8px 30px rgba(239,68,68,.4);transition:all .3s;z-index:50}
+        .upload-all-fab:hover:not(:disabled){transform:translateX(-50%) translateY(-3px);box-shadow:0 12px 40px rgba(239,68,68,.5)}
+        .upload-all-fab:disabled{opacity:.5;cursor:not-allowed}
+        .upload-all-fab .fab-count{background:rgba(0,0,0,.3);padding:.25rem .7rem;border-radius:20px;font-size:.85rem;min-width:30px;text-align:center}
+        .fab-progress{display:none;position:fixed;bottom:5rem;left:50%;transform:translateX(-50%);background:var(--bg-secondary);border:1px solid var(--border);border-radius:14px;padding:1rem 1.5rem;min-width:350px;z-index:51;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+        .fab-progress.visible{display:block}
+        .fab-progress-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem}
+        .fab-progress-label{font-size:.8rem;font-weight:600;color:#a78bfa}
+        .fab-progress-count{font-size:.8rem;font-weight:700;background:rgba(139,92,246,.15);padding:.15rem .6rem;border-radius:6px}
+        .fab-progress-bar{width:100%;height:8px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden}
+        .fab-progress-fill{height:100%;background:linear-gradient(90deg,#8b5cf6,#a78bfa);border-radius:4px;width:0%;transition:width .3s}
+        .fab-progress-status{font-size:.72rem;color:var(--text-muted);margin-top:.4rem;text-align:center}
+        .upload-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:5rem 2rem;color:var(--text-muted);text-align:center;gap:1rem}
+        .upload-empty i{font-size:4rem;opacity:.2}.upload-empty p{font-size:.95rem}
+        .upload-empty a{color:#a78bfa;text-decoration:none}.upload-empty a:hover{text-decoration:underline}
+        .phase-nav{display:flex;justify-content:center;margin:2rem 0 6rem}
+        .phase-nav-btn{padding:.85rem 2rem;background:linear-gradient(135deg,#f97316,#ea580c);border:none;border-radius:12px;color:#fff;font-size:.9rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:.75rem;transition:all .2s;box-shadow:0 4px 15px rgba(249,115,22,.25);text-decoration:none}
+        .phase-nav-btn:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(249,115,22,.35)}
+        @media(max-width:900px){.upload-page{padding:1.25rem}.upload-top-bar{flex-direction:column;align-items:flex-start}.upload-stats{flex-direction:column;gap:.75rem}.card-body{grid-template-columns:1fr}.card-media{border-right:none;border-bottom:1px solid var(--border)}.card-footer{flex-direction:column;align-items:flex-start}}
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo"><a href="/" style="display:flex;align-items:center;gap:0.75rem;text-decoration:none;color:inherit;"><div class="logo-icon"><i class="fab fa-youtube"></i></div><span class="logo-text">Raf<span class="accent">Localizer</span></span></a></div>
+        <div class="header-actions">
+            <a href="/thumbnail" class="btn btn-ghost"><i class="fas fa-arrow-left"></i> Back</a>
+            <span class="phase-badge" style="background:rgba(139,92,246,.15);color:#a78bfa;border:1px solid rgba(139,92,246,.3);padding:.5rem 1rem;border-radius:20px;font-size:.75rem;font-weight:600;"><i class="fas fa-robot"></i> PHASE 6: HEYGEN UPLOAD</span>
+        </div>
+    </header>
+    <div class="upload-page" id="upload-page">
+        <div class="upload-top-bar">
+            <div class="auth-section">
+                <div class="auth-badge disconnected" id="auth-badge"><i class="fas fa-circle-notch fa-spin"></i><span id="auth-text">Checking...</span></div>
+                <button class="connect-btn" id="connect-btn" style="display:none;"><i class="fab fa-youtube"></i> Connect YouTube</button>
+            </div>
+            <div class="global-controls">
+                <div class="control-group"><label><i class="fas fa-globe"></i> Default Privacy</label>
+                    <select class="control-select" id="global-privacy"><option value="public">🌍 Public</option><option value="unlisted">🔗 Unlisted</option><option value="private">🔒 Private</option></select>
+                </div>
+            </div>
+        </div>
+        <div class="upload-stats" id="upload-stats"><div class="stat-card"><div class="stat-number total" id="stat-total">0</div><div class="stat-label">Total Videos</div></div><div class="stat-card"><div class="stat-number ready" id="stat-ready">0</div><div class="stat-label">Ready to Upload</div></div><div class="stat-card"><div class="stat-number pending" id="stat-pending">0</div><div class="stat-label">Need Video</div></div><div class="stat-card"><div class="stat-number uploaded" id="stat-uploaded">0</div><div class="stat-label">Uploaded</div></div></div>
+        <div class="video-cards" id="video-cards"></div>
+        <div class="phase-nav" id="phase-nav" style="display:none;"><a href="/social" class="phase-nav-btn"><i class="fas fa-crop-alt"></i> Continue to 9:16 Converter (Phase 7) →</a></div>
+    </div>
+    <button class="upload-all-fab" id="upload-all-fab" disabled><i class="fas fa-cloud-upload-alt"></i>Upload All<span class="fab-count" id="fab-count">0</span></button>
+    <div class="fab-progress" id="fab-progress"><div class="fab-progress-header"><span class="fab-progress-label" id="fab-progress-label">Uploading...</span><span class="fab-progress-count" id="fab-progress-count">0/0</span></div><div class="fab-progress-bar"><div class="fab-progress-fill" id="fab-progress-fill"></div></div><div class="fab-progress-status" id="fab-progress-status">Preparing...</div></div>
+    <script>
+    let studioData = [];
+    let isAuthenticated = false;
+    let isBatchUploading = false;
+
+    async function init() {
+        try { studioData = await loadIDB('studioData') || []; } catch(e) {
+            const s = sessionStorage.getItem('studioData');
+            if (s) studioData = JSON.parse(s);
+        }
+        if (!studioData.length) { showEmpty(); return; }
+        renderCards(); updateStats();
+        await checkAuth();
+    }
+
+    function showEmpty() {
+        document.getElementById('video-cards').innerHTML = '<div class="upload-empty"><i class="fas fa-robot"></i><p>No video data found.</p><p>Go to <a href="/thumbnail">Phase 3 (Thumbnail)</a> and click "Send to HeyGen Upload" first.</p></div>';
+        document.getElementById('upload-all-fab').style.display = 'none';
+        document.getElementById('upload-stats').style.display = 'none';
+    }
+
+    function renderCards() {
+        const c = document.getElementById('video-cards');
+        c.innerHTML = '';
+        const now = new Date(), minDate = now.toISOString().split('T')[0];
+        const tom = new Date(); tom.setDate(tom.getDate()+1);
+        const tomDate = tom.toISOString().split('T')[0];
+        const tz = new Date().toLocaleTimeString('en-US',{timeZoneName:'short'}).split(' ').pop();
+
+        studioData.forEach((item, i) => {
+            const hasVideo = !!item._heygenFile;
+            const isUploaded = !!item._heygenUploadedUrl;
+            const thumbSrc = item.edited_thumbnail_base64 || item.thumbnail_url || '';
+            const title = item.production_title || item.title || '';
+            const desc = item.production_description || '';
+            const tags = item.production_tags || '';
+
+            let badge = '';
+            if (isUploaded) badge = '<span class="card-status-badge badge-uploaded"><i class="fas fa-check-circle"></i> Uploaded</span>';
+            else if (hasVideo) badge = '<span class="card-status-badge badge-ready"><i class="fas fa-check"></i> Ready</span>';
+            else badge = '<span class="card-status-badge badge-no-video"><i class="fas fa-file-video"></i> Need Video</span>';
+
+            let videoHtml = '';
+            if (hasVideo) {
+                videoHtml = `<div class="media-video-container"><video controls preload="metadata" src="/api/heygen/stream/${encodeURIComponent(item._heygenFile)}"></video></div>
+                    <button class="browse-btn" onclick="browseVideo(${i})"><i class="fas fa-sync-alt"></i> Replace Video</button>`;
+            } else {
+                videoHtml = `<div class="no-video-placeholder" onclick="browseVideo(${i})"><i class="fas fa-cloud-upload-alt"></i><span>Click to browse HeyGen video</span></div>
+                    <button class="browse-btn" onclick="browseVideo(${i})"><i class="fas fa-file-video"></i> Browse MP4</button>`;
+            }
+
+            const card = document.createElement('div');
+            card.className = `upload-card ${isUploaded?'uploaded':''} ${!hasVideo?'no-video':''}`;
+            card.id = `card-${i}`;
+            card.innerHTML = `
+                <div class="card-header"><div class="card-header-left"><div class="card-number">${i+1}</div><span class="card-original-title" title="${esc(item.title||'')}">${esc(item.title||'Untitled')}</span></div>${badge}</div>
+                <div class="card-body">
+                    <div class="card-media"><img class="media-thumb" src="${thumbSrc}" alt="Thumbnail" onerror="this.style.opacity='0.2'">${videoHtml}<input type="file" id="file-${i}" accept=".mp4,.mov,.webm" style="display:none" onchange="onFileSelected(${i},this)"></div>
+                    <div class="card-meta">
+                        <div class="meta-field"><label><i class="fas fa-heading"></i> Title</label><input type="text" class="meta-input" id="title-${i}" value="${esc(title)}" maxlength="100" oninput="updCount('title-${i}','tc-${i}',100)"><div class="meta-char-count" id="tc-${i}">${title.length}/100</div></div>
+                        <div class="meta-field"><label><i class="fas fa-align-left"></i> Description</label><textarea class="meta-textarea" id="desc-${i}" maxlength="5000" oninput="updCount('desc-${i}','dc-${i}',5000)">${esc(desc)}</textarea><div class="meta-char-count" id="dc-${i}">${desc.length}/5000</div></div>
+                        <div class="meta-field"><label><i class="fas fa-tags"></i> Tags</label><input type="text" class="meta-input" id="tags-${i}" value="${esc(tags)}" placeholder="tag1, tag2, tag3"></div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <div class="schedule-section"><label class="schedule-toggle"><input type="checkbox" id="sched-${i}" onchange="toggleSched(${i})" checked><span class="toggle-slider"></span><span class="schedule-toggle-label">📅 Schedule</span></label>
+                        <div class="schedule-inputs visible" id="sched-inputs-${i}"><input type="date" class="schedule-date" id="date-${i}" min="${minDate}" value="${tomDate}"><input type="time" class="schedule-time" id="time-${i}" value="14:00" step="900"><span class="schedule-tz">${tz}</span></div>
+                    </div>
+                    <div class="card-actions"><select class="privacy-select" id="priv-${i}" disabled><option value="private" selected>🔒 Private</option><option value="unlisted">🔗 Unlisted</option><option value="public">🌍 Public</option></select>
+                        <button class="upload-card-btn" id="ubtn-${i}" ${!hasVideo||isUploaded?'disabled':''} onclick="uploadSingle(${i})"><i class="fab fa-youtube"></i> ${isUploaded?'Re-Upload':'Upload'}</button></div>
+                </div>
+                <div class="card-progress" id="prog-${i}"><div class="card-progress-bar"><div class="card-progress-fill" id="pfill-${i}"></div></div><div class="card-progress-text" id="ptext-${i}">Preparing...</div></div>
+                <div class="card-upload-result" id="result-${i}"></div>`;
+            c.appendChild(card);
+            if (isUploaded) showResult(i, {success:true, video_url:item._heygenUploadedUrl, video_id:item._heygenVideoId});
+        });
+        document.getElementById('global-privacy').onchange = e => { studioData.forEach((_,i) => { const s=document.getElementById(`priv-${i}`); if(s) s.value=e.target.value; }); };
+        document.getElementById('phase-nav').style.display = 'flex';
+    }
+
+    // ===== BROWSE & IMPORT VIDEO PER CARD =====
+    function browseVideo(i) { document.getElementById(`file-${i}`).click(); }
+
+    async function onFileSelected(i, input) {
+        const file = input.files[0];
+        if (!file) return;
+        const card = document.getElementById(`card-${i}`);
+        const badge = card.querySelector('.card-status-badge');
+        badge.className = 'card-status-badge badge-uploading';
+        badge.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importing...';
+
+        const formData = new FormData();
+        formData.append('video', file);
+        try {
+            const res = await fetch('/api/heygen/import', {method:'POST', body:formData});
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error);
+            studioData[i]._heygenFile = data.filename;
+            await saveIDB('studioData', studioData);
+            // Re-render this card's media section
+            const media = card.querySelector('.card-media');
+            media.innerHTML = `<img class="media-thumb" src="${studioData[i].edited_thumbnail_base64||studioData[i].thumbnail_url||''}" alt="Thumbnail" onerror="this.style.opacity='0.2'">
+                <div class="media-video-container"><video controls preload="metadata" src="/api/heygen/stream/${encodeURIComponent(data.filename)}"></video></div>
+                <button class="browse-btn" onclick="browseVideo(${i})"><i class="fas fa-sync-alt"></i> Replace Video</button>
+                <input type="file" id="file-${i}" accept=".mp4,.mov,.webm" style="display:none" onchange="onFileSelected(${i},this)">`;
+            card.classList.remove('no-video');
+            badge.className = 'card-status-badge badge-ready';
+            badge.innerHTML = '<i class="fas fa-check"></i> Ready';
+            document.getElementById(`ubtn-${i}`).disabled = !isAuthenticated;
+            updateStats();
+        } catch(err) {
+            alert('Import failed: ' + err.message);
+            badge.className = 'card-status-badge badge-no-video';
+            badge.innerHTML = '<i class="fas fa-file-video"></i> Need Video';
+        }
+        input.value = '';
+    }
+
+    // ===== HELPERS =====
+    function esc(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML.replace(/"/g,'&quot;');}
+    function updCount(iid,cid,max){const el=document.getElementById(iid),c=document.getElementById(cid);if(!el||!c)return;const l=el.value.length;c.textContent=`${l}/${max}`;c.className=`meta-char-count ${l>max*.95?'warn':''} ${l>=max?'over':''}`;}
+    function toggleSched(i){const chk=document.getElementById(`sched-${i}`),inp=document.getElementById(`sched-inputs-${i}`),p=document.getElementById(`priv-${i}`);if(chk.checked){inp.classList.add('visible');p.value='private';p.disabled=true;}else{inp.classList.remove('visible');p.disabled=false;}}
+    function getSchedISO(i){const chk=document.getElementById(`sched-${i}`);if(!chk||!chk.checked)return null;const d=document.getElementById(`date-${i}`).value,t=document.getElementById(`time-${i}`).value;if(!d||!t)return null;const dt=new Date(`${d}T${t}:00`);return dt<=new Date()?null:dt.toISOString();}
+    function updateStats(){const total=studioData.length,ready=studioData.filter(i=>i._heygenFile&&!i._heygenUploadedUrl).length,pending=studioData.filter(i=>!i._heygenFile).length,uploaded=studioData.filter(i=>i._heygenUploadedUrl).length;
+        document.getElementById('stat-total').textContent=total;document.getElementById('stat-ready').textContent=ready;document.getElementById('stat-pending').textContent=pending;document.getElementById('stat-uploaded').textContent=uploaded;
+        const fab=document.getElementById('upload-all-fab');document.getElementById('fab-count').textContent=ready;fab.disabled=ready===0||!isAuthenticated;}
+
+    // ===== AUTH =====
+    async function checkAuth(){try{const r=await fetch('/api/upload/auth-status'),d=await r.json(),b=document.getElementById('auth-badge'),btn=document.getElementById('connect-btn');
+        if(d.is_authenticated){b.className='auth-badge connected';b.innerHTML=`<i class="fas fa-check-circle"></i><span>${d.message||'Connected'}</span>`;btn.style.display='none';isAuthenticated=true;studioData.forEach((_,i)=>{const bt=document.getElementById(`ubtn-${i}`);if(bt&&studioData[i]._heygenFile)bt.disabled=false;});}
+        else{b.className='auth-badge disconnected';b.innerHTML=`<i class="fas fa-exclamation-circle"></i><span>${d.message||'Not connected'}</span>`;btn.style.display='flex';isAuthenticated=false;}updateStats();}catch(e){console.error(e);}}
+
+    document.getElementById('connect-btn').addEventListener('click',async()=>{const btn=document.getElementById('connect-btn');btn.disabled=true;btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Opening...';
+        try{const r=await fetch('/api/upload/authorize',{method:'POST'}),d=await r.json();if(d.success)await checkAuth();else alert('Auth failed: '+(d.error||'Unknown'));}catch(e){alert('Auth failed: '+e.message);}
+        finally{btn.disabled=false;btn.innerHTML='<i class="fab fa-youtube"></i> Connect YouTube';}});
+
+    // ===== UPLOAD =====
+    async function uploadSingle(i, skipConfirm){
+        if(!isAuthenticated){alert('Connect YouTube first.');return;}
+        const item=studioData[i];if(!item._heygenFile){alert('Browse a video first.');return;}
+        const title=document.getElementById(`title-${i}`).value.trim(),desc=document.getElementById(`desc-${i}`).value.trim(),tags=document.getElementById(`tags-${i}`).value.trim(),privacy=document.getElementById(`priv-${i}`).value,publishAt=getSchedISO(i);
+        if(!title){alert('Enter a title.');return;}
+        const schedChk=document.getElementById(`sched-${i}`);if(schedChk&&schedChk.checked&&!publishAt){alert('Set a valid future date/time.');return;}
+        if(!skipConfirm){let msg=`Upload to YouTube?\n\nTitle: ${title}\nPrivacy: ${privacy}`;if(publishAt)msg+=`\nScheduled: ${new Date(publishAt).toLocaleString()}`;if(!confirm(msg))return;}
+        const btn=document.getElementById(`ubtn-${i}`),prog=document.getElementById(`prog-${i}`),pfill=document.getElementById(`pfill-${i}`),ptext=document.getElementById(`ptext-${i}`),res=document.getElementById(`result-${i}`);
+        btn.disabled=true;btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Uploading...';prog.classList.add('visible');pfill.style.width='0%';res.classList.remove('visible');
+        const card=document.getElementById(`card-${i}`),badge=card.querySelector('.card-status-badge');badge.className='card-status-badge badge-uploading';badge.innerHTML='<i class="fas fa-spinner fa-spin"></i> Uploading';
+        try{const r=await fetch('/api/heygen/upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({video_filename:item._heygenFile,title,description:desc,tags,privacy:publishAt?'private':privacy,publish_at:publishAt,thumbnail_base64:item.edited_thumbnail_base64||null})});
+            const d=await r.json();if(!d.success)throw new Error(d.error);await pollProgress(d.task_id,i);
+        }catch(e){ptext.textContent='❌ '+e.message;badge.className='card-status-badge badge-ready';badge.innerHTML='<i class="fas fa-check"></i> Ready';showResult(i,{success:false,error:e.message});setTimeout(()=>prog.classList.remove('visible'),3000);}
+        finally{btn.disabled=false;btn.innerHTML='<i class="fab fa-youtube"></i> Re-Upload';}}
+
+    async function pollProgress(tid,i){const pfill=document.getElementById(`pfill-${i}`),ptext=document.getElementById(`ptext-${i}`),prog=document.getElementById(`prog-${i}`);
+        while(true){await new Promise(r=>setTimeout(r,1000));const r=await fetch('/api/upload/status/'+tid),p=await r.json();pfill.style.width=p.progress+'%';ptext.textContent=p.message||`${p.progress}%`;
+            if(p.status==='done'){const res=p.result;if(res){studioData[i]._heygenUploadedUrl=res.video_url;studioData[i]._heygenVideoId=res.video_id;saveIDB('studioData',studioData);
+                const card=document.getElementById(`card-${i}`);card.classList.add('uploaded');const badge=card.querySelector('.card-status-badge');badge.className='card-status-badge badge-uploaded';badge.innerHTML='<i class="fas fa-check-circle"></i> Uploaded';showResult(i,res);}
+                updateStats();setTimeout(()=>prog.classList.remove('visible'),2000);return;}
+            if(p.status==='error')throw new Error(p.message);}}
+
+    function showResult(i,r){const div=document.getElementById(`result-${i}`);div.classList.add('visible');
+        if(r.success!==false){let sh='';if(r.scheduled){const sd=new Date(r.scheduled);sh=`<div class="result-schedule-info"><i class="fas fa-calendar-alt"></i> Scheduled: ${sd.toLocaleDateString()} at ${sd.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>`;}
+            div.innerHTML=`<div class="result-box success"><i class="fas fa-check-circle"></i><span>Uploaded!</span><a href="${r.video_url}" target="_blank">${r.video_url}</a>${sh}</div>`;}
+        else div.innerHTML=`<div class="result-box error"><i class="fas fa-times-circle"></i><span>${r.error||'Upload failed'}</span></div>`;}
+
+    // ===== BATCH =====
+    document.getElementById('upload-all-fab').addEventListener('click',()=>batchUpload());
+    async function batchUpload(){if(isBatchUploading||!isAuthenticated)return;
+        const ready=studioData.map((it,i)=>({it,i})).filter(({it})=>it._heygenFile&&!it._heygenUploadedUrl);
+        if(!ready.length){alert('No videos ready.');return;}if(!confirm(`Upload ${ready.length} video(s)?`))return;
+        isBatchUploading=true;const fab=document.getElementById('upload-all-fab'),fp=document.getElementById('fab-progress'),ff=document.getElementById('fab-progress-fill'),fl=document.getElementById('fab-progress-label'),fc=document.getElementById('fab-progress-count'),fs=document.getElementById('fab-progress-status');
+        fab.disabled=true;fab.innerHTML='<i class="fas fa-spinner fa-spin"></i> Uploading...';fp.classList.add('visible');
+        let done=0,errs=[];
+        for(let x=0;x<ready.length;x++){const{it,i}=ready[x];fc.textContent=`${x+1}/${ready.length}`;ff.style.width=`${(x/ready.length)*100}%`;fl.textContent=`📤 ${x+1}/${ready.length}`;
+            fs.textContent=(document.getElementById(`title-${i}`).value||it.title||'').substring(0,50);
+            try{await uploadSingle(i,true);done++;}catch(e){errs.push(e.message);}}
+        ff.style.width='100%';isBatchUploading=false;
+        fl.textContent=errs.length?`⚠️ ${errs.length} error(s)`:'✅ All Uploaded!';fs.textContent=errs.length?errs[0]:`${done} uploaded`;
+        fab.disabled=false;fab.innerHTML=`<i class="fas fa-cloud-upload-alt"></i>Upload All<span class="fab-count" id="fab-count">0</span>`;updateStats();setTimeout(()=>fp.classList.remove('visible'),5000);}
+
+    // ===== IDB =====
+    function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open('RafLocalizerDB',1);r.onupgradeneeded=()=>{const db=r.result;if(!db.objectStoreNames.contains('appData'))db.createObjectStore('appData');};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
+    function saveIDB(k,v){return openDB().then(db=>new Promise((res,rej)=>{const tx=db.transaction('appData','readwrite');tx.objectStore('appData').put(v,k);tx.oncomplete=()=>{db.close();res();};tx.onerror=()=>{db.close();rej(tx.error);};}));}
+    function loadIDB(k){return openDB().then(db=>new Promise((res,rej)=>{const tx=db.transaction('appData','readonly');const rq=tx.objectStore('appData').get(k);rq.onsuccess=()=>{db.close();res(rq.result);};rq.onerror=()=>{db.close();rej(rq.error);};}));}
+
+    init();
+    </script>
+</body>
+</html>

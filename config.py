@@ -52,3 +52,17 @@ AVAILABLE_MODELS = {
 
 # Default model
 DEFAULT_MODEL = "gemini-2.5-flash-lite"
+
+# ===== PHASE 6 & 7: HeyGen + Social Media =====
+
+# HeyGen video import directory
+HEYGEN_IMPORT_DIR = os.path.join(os.path.dirname(__file__), 'output', 'heygen')
+SOCIAL_OUTPUT_DIR = os.path.join(os.path.dirname(__file__), 'output', 'social')
+
+# Facebook / Instagram API (Phase 7)
+FB_APP_ID = os.getenv("FB_APP_ID")
+FB_APP_SECRET = os.getenv("FB_APP_SECRET")
+
+# Portrait video conversion
+PORTRAIT_WIDTH = 1080
+PORTRAIT_HEIGHT = 1920

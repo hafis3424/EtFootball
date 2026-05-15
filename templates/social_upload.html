@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RafLocalizer - Social Media Converter</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        .social-page{margin-top:70px;padding:2rem 2.5rem;min-height:calc(100vh - 70px);max-width:1200px;margin-left:auto;margin-right:auto}
+        .social-header-bar{background:var(--card-bg);border:1px solid var(--border);border-radius:16px;padding:1.25rem 1.5rem;margin-bottom:2rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;backdrop-filter:blur(10px)}
+        .social-header-bar h2{font-size:1.1rem;font-weight:700;display:flex;align-items:center;gap:.6rem;color:var(--text)}
+        .social-header-bar h2 i{color:#f97316}
+        .convert-all-btn{padding:.65rem 1.5rem;background:linear-gradient(135deg,#f97316,#ea580c);border:none;border-radius:10px;color:#fff;font-size:.85rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:.5rem;transition:all .2s;box-shadow:0 3px 12px rgba(249,115,22,.25)}
+        .convert-all-btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 5px 20px rgba(249,115,22,.35)}
+        .convert-all-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+
+        .social-stats{display:flex;gap:1.5rem;margin-bottom:2rem}
+        .ss-stat{flex:1;background:var(--card-bg);border:1px solid var(--border);border-radius:14px;padding:1.25rem;text-align:center;transition:all .2s}
+        .ss-stat:hover{background:var(--card-hover)}
+        .ss-num{font-size:2rem;font-weight:800;line-height:1;margin-bottom:.35rem}
+        .ss-num.source{color:#a78bfa}
+        .ss-num.converted{color:#10b981}
+        .ss-num.pending{color:#f59e0b}
+        .ss-label{font-size:.75rem;color:var(--text-muted);font-weight:500}
+
+        .section-title{font-size:.85rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:1rem;display:flex;align-items:center;gap:.5rem}
+        .section-title i{color:#f97316;font-size:.8rem}
+
+        /* Source video cards */
+        .src-cards{display:flex;flex-direction:column;gap:1rem;margin-bottom:2.5rem}
+        .src-card{background:var(--card-bg);border:1px solid var(--border);border-radius:14px;display:grid;grid-template-columns:200px 1fr auto;align-items:center;gap:0;overflow:hidden;transition:all .25s}
+        .src-card:hover{background:var(--card-hover);border-color:rgba(255,255,255,.12)}
+        .src-card.converting{border-color:rgba(249,115,22,.3)}
+        .src-card.done{border-color:rgba(16,185,129,.3)}
+        .src-thumb-wrap{padding:1rem;border-right:1px solid var(--border)}
+        .src-thumb{width:100%;aspect-ratio:16/9;border-radius:8px;object-fit:cover;background:var(--bg)}
+        .src-info{padding:1rem 1.25rem;display:flex;flex-direction:column;gap:.4rem}
+        .src-title{font-size:.9rem;font-weight:600;color:var(--text)}
+        .src-filename{font-size:.75rem;color:var(--text-muted)}
+        .src-meta{font-size:.7rem;color:var(--text-muted);opacity:.6;display:flex;gap:.75rem}
+        .src-progress{margin-top:.4rem}
+        .src-prog-bar{width:100%;height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden}
+        .src-prog-fill{height:100%;background:linear-gradient(90deg,#f97316,#fb923c);border-radius:3px;width:0%;transition:width .3s}
+        .src-prog-text{font-size:.65rem;color:var(--text-muted);margin-top:.2rem}
+        .src-actions{padding:1rem 1.25rem;display:flex;flex-direction:column;align-items:flex-end;gap:.5rem}
+        .conv-btn{padding:.5rem 1.15rem;border-radius:8px;border:none;font-size:.78rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:.4rem;transition:all .2s}
+        .conv-btn.convert{background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;box-shadow:0 2px 8px rgba(249,115,22,.2)}
+        .conv-btn.convert:hover:not(:disabled){transform:translateY(-1px)}
+        .conv-btn.convert:disabled{opacity:.4;cursor:not-allowed;transform:none}
+        .conv-btn.done-badge{background:rgba(16,185,129,.1);color:#34d399;border:1px solid rgba(16,185,129,.25);cursor:default}
+
+        /* Converted videos */
+        .conv-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1.25rem;margin-bottom:3rem}
+        .conv-card{background:var(--card-bg);border:1px solid var(--border);border-radius:14px;overflow:hidden;transition:all .25s}
+        .conv-card:hover{background:var(--card-hover);border-color:rgba(255,255,255,.12)}
+        .conv-preview{position:relative;aspect-ratio:9/16;max-height:360px;overflow:hidden;background:#000}
+        .conv-preview video{width:100%;height:100%;object-fit:contain}
+        .conv-dim-badge{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.8);color:#10b981;padding:3px 8px;border-radius:4px;font-size:.7rem;font-weight:600}
+        .conv-info{padding:1rem}
+        .conv-name{font-size:.82rem;font-weight:600;margin-bottom:.4rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .conv-details{font-size:.7rem;color:var(--text-muted);display:flex;gap:.75rem;margin-bottom:.75rem}
+        .conv-actions{display:flex;gap:.5rem}
+        .dl-btn{flex:1;padding:.5rem;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.25);border-radius:8px;color:#60a5fa;font-size:.75rem;font-weight:600;cursor:pointer;text-align:center;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:.4rem;transition:all .2s}
+        .dl-btn:hover{background:rgba(59,130,246,.2)}
+
+        .social-empty{display:flex;flex-direction:column;align-items:center;padding:3rem 2rem;color:var(--text-muted);text-align:center;gap:.75rem}
+        .social-empty i{font-size:3rem;opacity:.2}
+        .social-empty a{color:#a78bfa;text-decoration:none}
+        .social-empty a:hover{text-decoration:underline}
+
+        .batch-progress{display:none;background:var(--card-bg);border:1px solid var(--border);border-radius:12px;padding:1rem 1.25rem;margin-bottom:1.5rem}
+        .batch-progress.visible{display:block}
+        .bp-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem}
+        .bp-label{font-size:.8rem;font-weight:600;color:#f97316}
+        .bp-count{font-size:.8rem;font-weight:700;background:rgba(249,115,22,.15);padding:.15rem .6rem;border-radius:6px;color:#fb923c}
+        .bp-bar{width:100%;height:8px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden}
+        .bp-fill{height:100%;background:linear-gradient(90deg,#f97316,#fb923c);border-radius:4px;width:0%;transition:width .3s}
+        .bp-status{font-size:.72rem;color:var(--text-muted);margin-top:.4rem;text-align:center}
+
+        @media(max-width:900px){
+            .social-page{padding:1.25rem}
+            .social-stats{flex-direction:column;gap:.75rem}
+            .src-card{grid-template-columns:1fr}
+            .src-thumb-wrap{border-right:none;border-bottom:1px solid var(--border)}
+            .src-actions{flex-direction:row;align-items:center;padding:.75rem 1rem}
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">
+            <a href="/" style="display:flex;align-items:center;gap:0.75rem;text-decoration:none;color:inherit;">
+                <div class="logo-icon"><i class="fab fa-youtube"></i></div>
+                <span class="logo-text">Raf<span class="accent">Localizer</span></span>
+            </a>
+        </div>
+        <div class="header-actions">
+            <a href="/heygen" class="btn btn-ghost"><i class="fas fa-arrow-left"></i> Back to Phase 6</a>
+            <span class="phase-badge" style="background:rgba(249,115,22,.15);color:#fb923c;border:1px solid rgba(249,115,22,.3);padding:.5rem 1rem;border-radius:20px;font-size:.75rem;font-weight:600;">
+                <i class="fas fa-crop-alt"></i> PHASE 7: 9:16 CONVERTER
+            </span>
+        </div>
+    </header>
+
+    <div class="social-page">
+        <!-- Header Bar -->
+        <div class="social-header-bar">
+            <h2><i class="fas fa-crop-alt"></i> Convert to 9:16 Portrait</h2>
+            <button class="convert-all-btn" id="convert-all-btn" disabled>
+                <i class="fas fa-magic"></i> Convert All to 9:16
+            </button>
+        </div>
+
+        <!-- Stats -->
+        <div class="social-stats" id="social-stats" style="display:none;">
+            <div class="ss-stat">
+                <div class="ss-num source" id="ss-source">0</div>
+                <div class="ss-label">Source Videos</div>
+            </div>
+            <div class="ss-stat">
+                <div class="ss-num converted" id="ss-converted">0</div>
+                <div class="ss-label">Converted</div>
+            </div>
+            <div class="ss-stat">
+                <div class="ss-num pending" id="ss-pending">0</div>
+                <div class="ss-label">Pending</div>
+            </div>
+        </div>
+
+        <!-- Batch progress -->
+        <div class="batch-progress" id="batch-progress">
+            <div class="bp-header">
+                <span class="bp-label" id="bp-label">Converting...</span>
+                <span class="bp-count" id="bp-count">0/0</span>
+            </div>
+            <div class="bp-bar"><div class="bp-fill" id="bp-fill"></div></div>
+            <div class="bp-status" id="bp-status">Preparing...</div>
+        </div>
+
+        <!-- Source Videos -->
+        <div class="section-title"><i class="fas fa-film"></i> Source Videos (16:9)</div>
+        <div class="src-cards" id="src-cards">
+            <div class="social-empty" id="src-empty">
+                <i class="fas fa-robot"></i>
+                <p>No HeyGen videos found.</p>
+                <p>Import videos in <a href="/heygen">Phase 6</a> first.</p>
+            </div>
+        </div>
+
+        <!-- Converted Videos -->
+        <div class="section-title" id="conv-title" style="display:none;"><i class="fas fa-mobile-alt"></i> Converted Videos (9:16)</div>
+        <div class="conv-cards" id="conv-cards"></div>
+    </div>
+
+    <script>
+    let sourceVideos = [];
+    let convertedVideos = [];
+    let heygenMeta = {};
+    let convertedSet = new Set();
+    let isConverting = false;
+
+    async function init() {
+        try { heygenMeta = await loadIDB('heygenUploadMap') || {}; } catch(e) {}
+        await Promise.all([loadSource(), loadConverted()]);
+        renderAll();
+    }
+
+    async function loadSource() {
+        try {
+            const r = await fetch('/api/heygen/list');
+            const d = await r.json();
+            if (d.success) sourceVideos = d.videos || [];
+        } catch(e) { console.error(e); }
+    }
+
+    async function loadConverted() {
+        try {
+            const r = await fetch('/api/social/converted');
+            const d = await r.json();
+            if (d.success) {
+                convertedVideos = d.videos || [];
+                convertedSet = new Set(convertedVideos.map(v => v.filename));
+            }
+        } catch(e) { console.error(e); }
+    }
+
+    function isAlreadyConverted(filename) {
+        const base = filename.replace(/\.[^.]+$/, '');
+        return convertedSet.has(base + '_9x16.mp4');
+    }
+
+    function renderAll() {
+        renderStats();
+        renderSource();
+        renderConverted();
+        const pending = sourceVideos.filter(v => !isAlreadyConverted(v.filename)).length;
+        document.getElementById('convert-all-btn').disabled = pending === 0;
+    }
+
+    function renderStats() {
+        const el = document.getElementById('social-stats');
+        if (sourceVideos.length === 0) { el.style.display = 'none'; return; }
+        el.style.display = 'flex';
+        const total = sourceVideos.length;
+        const done = sourceVideos.filter(v => isAlreadyConverted(v.filename)).length;
+        document.getElementById('ss-source').textContent = total;
+        document.getElementById('ss-converted').textContent = done;
+        document.getElementById('ss-pending').textContent = total - done;
+    }
+
+    function renderSource() {
+        const container = document.getElementById('src-cards');
+        const empty = document.getElementById('src-empty');
+        if (sourceVideos.length === 0) { empty.style.display = 'flex'; return; }
+        empty.style.display = 'none';
+        container.innerHTML = '';
+
+        sourceVideos.forEach((v, i) => {
+            const done = isAlreadyConverted(v.filename);
+            const meta = heygenMeta[v.filename] || {};
+            const title = meta.title || v.filename.replace(/\.[^.]+$/, '');
+            const dur = fmtDur(v.duration);
+
+            const card = document.createElement('div');
+            card.className = `src-card ${done ? 'done' : ''}`;
+            card.id = `src-${i}`;
+            card.innerHTML = `
+                <div class="src-thumb-wrap">
+                    <img class="src-thumb" src="/api/heygen/thumbnail/${encodeURIComponent(v.filename)}" alt="" onerror="this.style.opacity='0.2'">
+                </div>
+                <div class="src-info">
+                    <div class="src-title" id="src-title-${i}">${esc(title)}</div>
+                    <div class="src-filename">${esc(v.filename)}</div>
+                    <div class="src-meta"><span>${dur}</span><span>${v.file_size_mb} MB</span><span>${v.width}×${v.height}</span></div>
+                    <div class="src-progress" id="src-prog-${i}" style="display:none;">
+                        <div class="src-prog-bar"><div class="src-prog-fill" id="src-pfill-${i}"></div></div>
+                        <div class="src-prog-text" id="src-ptext-${i}">Preparing...</div>
+                    </div>
+                </div>
+                <div class="src-actions">
+                    ${done
+                        ? '<span class="conv-btn done-badge"><i class="fas fa-check-circle"></i> Converted</span>'
+                        : `<button class="conv-btn convert" id="src-btn-${i}" onclick="convertSingle(${i})"><i class="fas fa-crop-alt"></i> Convert 9:16</button>`
+                    }
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    function renderConverted() {
+        const container = document.getElementById('conv-cards');
+        const title = document.getElementById('conv-title');
+        if (convertedVideos.length === 0) { container.innerHTML = ''; title.style.display = 'none'; return; }
+        title.style.display = 'flex';
+        container.innerHTML = '';
+
+        convertedVideos.forEach(v => {
+            const dur = fmtDur(v.duration);
+            const card = document.createElement('div');
+            card.className = 'conv-card';
+            card.innerHTML = `
+                <div class="conv-preview">
+                    <video controls preload="metadata" src="/api/social/stream/${encodeURIComponent(v.filename)}"></video>
+                    <span class="conv-dim-badge">${v.width}×${v.height}</span>
+                </div>
+                <div class="conv-info">
+                    <div class="conv-name" title="${esc(v.filename)}">${esc(v.filename)}</div>
+                    <div class="conv-details"><span>${dur}</span><span>${v.file_size_mb} MB</span></div>
+                    <div class="conv-actions">
+                        <a class="dl-btn" href="/api/social/stream/${encodeURIComponent(v.filename)}" download="${esc(v.filename)}">
+                            <i class="fas fa-download"></i> Download
+                        </a>
+                    </div>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    // ===== CONVERT SINGLE =====
+    async function convertSingle(idx) {
+        const v = sourceVideos[idx];
+        const btn = document.getElementById(`src-btn-${idx}`);
+        const prog = document.getElementById(`src-prog-${idx}`);
+        const pfill = document.getElementById(`src-pfill-${idx}`);
+        const ptext = document.getElementById(`src-ptext-${idx}`);
+        const card = document.getElementById(`src-${idx}`);
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Converting...';
+        prog.style.display = 'block';
+        card.classList.add('converting');
+
+        try {
+            const res = await fetch('/api/social/convert', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filename: v.filename })
+            });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error);
+            await pollConvert(data.task_id, idx);
+        } catch(err) {
+            ptext.textContent = '❌ ' + err.message;
+            card.classList.remove('converting');
+            setTimeout(() => { prog.style.display = 'none'; btn.disabled = false; btn.innerHTML = '<i class="fas fa-crop-alt"></i> Convert 9:16'; }, 3000);
+        }
+    }
+
+    async function pollConvert(taskId, idx) {
+        const pfill = document.getElementById(`src-pfill-${idx}`);
+        const ptext = document.getElementById(`src-ptext-${idx}`);
+        const prog = document.getElementById(`src-prog-${idx}`);
+        const card = document.getElementById(`src-${idx}`);
+
+        while (true) {
+            await new Promise(r => setTimeout(r, 1500));
+            const res = await fetch(`/api/social/convert/status/${taskId}`);
+            const p = await res.json();
+            pfill.style.width = p.progress + '%';
+            ptext.textContent = p.message || `${p.progress}%`;
+
+            if (p.status === 'done') {
+                card.classList.remove('converting');
+                card.classList.add('done');
+                const actions = card.querySelector('.src-actions');
+                actions.innerHTML = '<span class="conv-btn done-badge"><i class="fas fa-check-circle"></i> Converted</span>';
+                setTimeout(() => prog.style.display = 'none', 1500);
+                await loadConverted();
+                renderConverted();
+                renderStats();
+                const pending = sourceVideos.filter(v => !isAlreadyConverted(v.filename)).length;
+                document.getElementById('convert-all-btn').disabled = pending === 0;
+                return;
+            }
+            if (p.status === 'error') throw new Error(p.message);
+        }
+    }
+
+    // ===== CONVERT ALL =====
+    document.getElementById('convert-all-btn').addEventListener('click', convertAll);
+
+    async function convertAll() {
+        if (isConverting) return;
+        const pending = sourceVideos.map((v,i) => ({v,i})).filter(({v}) => !isAlreadyConverted(v.filename));
+        if (!pending.length) return;
+        if (!confirm(`Convert ${pending.length} video(s) to 9:16?`)) return;
+
+        isConverting = true;
+        const allBtn = document.getElementById('convert-all-btn');
+        const bp = document.getElementById('batch-progress');
+        const bpFill = document.getElementById('bp-fill');
+        const bpLabel = document.getElementById('bp-label');
+        const bpCount = document.getElementById('bp-count');
+        const bpStatus = document.getElementById('bp-status');
+
+        allBtn.disabled = true;
+        allBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Converting...';
+        bp.classList.add('visible');
+
+        let done = 0, errors = [];
+        for (let x = 0; x < pending.length; x++) {
+            const {v, i} = pending[x];
+            bpCount.textContent = `${x+1}/${pending.length}`;
+            bpFill.style.width = `${(x/pending.length)*100}%`;
+            bpLabel.textContent = `🔄 Converting ${x+1}/${pending.length}`;
+            bpStatus.textContent = v.filename;
+
+            try {
+                await convertSingle(i);
+                done++;
+            } catch(err) {
+                errors.push(v.filename + ': ' + err.message);
+            }
+        }
+
+        bpFill.style.width = '100%';
+        isConverting = false;
+        bpLabel.textContent = errors.length ? `⚠️ Done with ${errors.length} error(s)` : '✅ All Converted!';
+        bpStatus.textContent = errors.length ? errors[0] : `${done} video(s) converted`;
+        allBtn.disabled = false;
+        allBtn.innerHTML = '<i class="fas fa-magic"></i> Convert All to 9:16';
+        setTimeout(() => bp.classList.remove('visible'), 5000);
+    }
+
+    // ===== HELPERS =====
+    function esc(t) { const d=document.createElement('div'); d.textContent=t; return d.innerHTML.replace(/"/g,'&quot;'); }
+    function fmtDur(s) { const m=Math.floor(s/60); return `${m}:${Math.floor(s%60).toString().padStart(2,'0')}`; }
+
+    function openDB() {
+        return new Promise((res, rej) => {
+            const r = indexedDB.open('RafLocalizerDB', 1);
+            r.onupgradeneeded = () => { const db=r.result; if(!db.objectStoreNames.contains('appData')) db.createObjectStore('appData'); };
+            r.onsuccess = () => res(r.result);
+            r.onerror = () => rej(r.error);
+        });
+    }
+    function loadIDB(key) {
+        return openDB().then(db => new Promise((res, rej) => {
+            const tx=db.transaction('appData','readonly');
+            const rq=tx.objectStore('appData').get(key);
+            rq.onsuccess = () => { db.close(); res(rq.result); };
+            rq.onerror = () => { db.close(); rej(rq.error); };
+        }));
+    }
+
+    init();
+    </script>
+</body>
+</html>

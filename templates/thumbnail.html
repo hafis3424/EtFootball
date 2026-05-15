@@ -208,6 +208,10 @@
                             style="background: linear-gradient(135deg, #f97316, #fb923c); color: white; border: none; margin-top: 0.5rem; font-weight: 600;">
                         <i class="fas fa-film"></i> Send to Studio (Phase 4)
                     </button>
+                    <button class="btn btn-full" id="send-to-heygen-btn" disabled
+                            style="background: linear-gradient(135deg, #8b5cf6, #a78bfa); color: white; border: none; margin-top: 0.5rem; font-weight: 600;">
+                        <i class="fas fa-robot"></i> Send to HeyGen Upload (Phase 6)
+                    </button>
                 </div>
             </div>
         </div>
@@ -420,6 +424,7 @@
             document.getElementById('rect-tool-btn').disabled = false;
             document.getElementById('text-tool-btn').disabled = false;
             document.getElementById('send-to-studio-btn').disabled = false;
+            document.getElementById('send-to-heygen-btn').disabled = false;
         }
 
         function setupEventListeners() {
@@ -1206,6 +1211,67 @@
                     alert('Failed to save data: ' + err.message);
                     btn.disabled = false;
                     btn.innerHTML = `<i class="fas fa-paper-plane"></i> Send to Studio`;
+                });
+            });
+
+            // Send to HeyGen Upload button (Phase 6)
+            document.getElementById('send-to-heygen-btn').addEventListener('click', () => {
+                if (!currentImage && thumbnails.length === 0) {
+                    alert('Please load and edit a thumbnail first');
+                    return;
+                }
+
+                if (selectedThumbnailIndex >= 0 && currentImage) {
+                    saveCurrentEdit();
+                }
+
+                const translationState = sessionStorage.getItem('translationState');
+
+                // Build metadata map keyed by production_title for Phase 6 to match
+                const heygenMeta = {};
+                thumbnails.forEach((thumb, idx) => {
+                    let prodTitle = thumb.production_title || '';
+                    let prodDesc = '';
+                    let prodTags = '';
+                    if (translationState) {
+                        try {
+                            const state = JSON.parse(translationState);
+                            const videoData = state.translations?.[thumb.video_id];
+                            if (videoData) {
+                                prodDesc = videoData.prodDesc || '';
+                                prodTags = videoData.prodTags || '';
+                            }
+                        } catch (e) { }
+                    }
+                    // Store by index so Phase 6 can pick up metadata
+                    heygenMeta['__phase3_' + idx] = {
+                        title: prodTitle,
+                        description: prodDesc,
+                        tags: prodTags,
+                        originalTitle: thumb.title
+                    };
+                });
+
+                const btn = document.getElementById('send-to-heygen-btn');
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+                btn.disabled = true;
+
+                // Save to IndexedDB under heygenUploadMap
+                openStudioDB().then(db => {
+                    return new Promise((resolve, reject) => {
+                        const tx = db.transaction('appData', 'readwrite');
+                        tx.objectStore('appData').put(heygenMeta, 'heygenUploadMap');
+                        tx.oncomplete = () => { db.close(); resolve(); };
+                        tx.onerror = () => { db.close(); reject(tx.error); };
+                    });
+                }).then(() => {
+                    btn.innerHTML = '<i class="fas fa-check"></i> Sent!';
+                    setTimeout(() => { window.location.href = '/heygen'; }, 300);
+                }).catch(err => {
+                    console.error('Failed to save heygen data:', err);
+                    alert('Failed to save data: ' + err.message);
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-robot"></i> Send to HeyGen Upload (Phase 6)';
                 });
             });
         }

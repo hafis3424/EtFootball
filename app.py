@@ -5,6 +5,7 @@ from translator import TranslationService
 import voice_generator
 import video_generator
 import youtube_uploader
+import video_converter
 import config
 from flask_cors import CORS
 import threading
@@ -687,6 +688,226 @@ def upload_status(task_id):
     """Get upload progress."""
     progress = youtube_uploader.get_progress(task_id)
     return jsonify(progress)
+
+
+# ===== PHASE 6: HEYGEN YOUTUBE UPLOAD =====
+
+@app.route('/heygen')
+def heygen_page():
+    return render_template('heygen_upload.html')
+
+
+@app.route('/api/heygen/import', methods=['POST'])
+def heygen_import():
+    """Import a video file (multipart upload) into the HeyGen directory."""
+    if 'video' not in request.files:
+        return jsonify({'success': False, 'error': 'No video file provided'}), 400
+    
+    file = request.files['video']
+    if file.filename == '':
+        return jsonify({'success': False, 'error': 'No file selected'}), 400
+    
+    # Sanitize filename
+    import werkzeug.utils
+    filename = werkzeug.utils.secure_filename(file.filename)
+    if not filename.lower().endswith(('.mp4', '.mov', '.webm')):
+        return jsonify({'success': False, 'error': 'Only MP4, MOV, and WebM files are supported'}), 400
+    
+    filepath = os.path.join(video_converter.HEYGEN_DIR, filename)
+    file.save(filepath)
+    
+    # Get video info
+    info = video_converter.get_video_info(filepath)
+    # Extract thumbnail
+    video_converter.extract_thumbnail(filepath)
+    
+    return jsonify({
+        'success': True,
+        'filename': filename,
+        'duration': info['duration'],
+        'width': info['width'],
+        'height': info['height'],
+        'file_size_mb': info['file_size_mb']
+    })
+
+
+@app.route('/api/heygen/list', methods=['GET'])
+def heygen_list():
+    """List all videos in the HeyGen import directory."""
+    videos = video_converter.list_heygen_videos()
+    return jsonify({'success': True, 'videos': videos})
+
+
+@app.route('/api/heygen/scan', methods=['POST'])
+def heygen_scan():
+    """Re-scan the HeyGen folder for new videos and extract thumbnails."""
+    videos = video_converter.list_heygen_videos()
+    return jsonify({
+        'success': True,
+        'videos': videos,
+        'count': len(videos),
+        'directory': video_converter.HEYGEN_DIR
+    })
+
+
+@app.route('/api/heygen/thumbnail/<filename>', methods=['GET'])
+def heygen_thumbnail(filename):
+    """Serve the auto-extracted thumbnail for a HeyGen video."""
+    # Remove video extension, add .jpg
+    thumb_name = os.path.splitext(filename)[0] + '.jpg'
+    thumb_path = os.path.join(video_converter.THUMB_DIR, thumb_name)
+    
+    if os.path.exists(thumb_path):
+        return send_file(thumb_path, mimetype='image/jpeg')
+    
+    # Try to extract it now
+    video_path = os.path.join(video_converter.HEYGEN_DIR, filename)
+    if os.path.exists(video_path):
+        result = video_converter.extract_thumbnail(video_path, thumb_path)
+        if result:
+            return send_file(result, mimetype='image/jpeg')
+    
+    return jsonify({'error': 'Thumbnail not found'}), 404
+
+
+@app.route('/api/heygen/stream/<filename>', methods=['GET'])
+def heygen_stream(filename):
+    """Stream a HeyGen video for preview playback."""
+    filepath = os.path.join(video_converter.HEYGEN_DIR, filename)
+    if os.path.exists(filepath):
+        return send_file(filepath, mimetype='video/mp4')
+    return jsonify({'error': 'File not found'}), 404
+
+
+@app.route('/api/heygen/delete/<filename>', methods=['DELETE'])
+def heygen_delete(filename):
+    """Delete an imported HeyGen video and its thumbnail."""
+    filepath = os.path.join(video_converter.HEYGEN_DIR, filename)
+    thumb_name = os.path.splitext(filename)[0] + '.jpg'
+    thumb_path = os.path.join(video_converter.THUMB_DIR, thumb_name)
+    
+    deleted = False
+    if os.path.exists(filepath):
+        os.remove(filepath)
+        deleted = True
+    if os.path.exists(thumb_path):
+        os.remove(thumb_path)
+    
+    return jsonify({'success': deleted})
+
+
+@app.route('/api/heygen/upload', methods=['POST'])
+def heygen_upload():
+    """Upload a HeyGen video to YouTube (reuses youtube_uploader)."""
+    data = request.json
+    video_filename = data.get('video_filename', '')
+    title = data.get('title', '')
+    description = data.get('description', '')
+    tags = data.get('tags', '')
+    privacy = data.get('privacy', 'private')
+    publish_at = data.get('publish_at', None)
+    thumbnail_base64 = data.get('thumbnail_base64', None)
+    
+    if not video_filename:
+        return jsonify({'success': False, 'error': 'No video file specified'}), 400
+    if not title:
+        return jsonify({'success': False, 'error': 'No title provided'}), 400
+    
+    video_path = os.path.join(video_converter.HEYGEN_DIR, video_filename)
+    if not os.path.exists(video_path):
+        return jsonify({'success': False, 'error': 'Video file not found'}), 404
+    
+    # Save thumbnail if provided
+    thumbnail_path = None
+    if thumbnail_base64:
+        try:
+            thumb_filename = f'thumb_{video_filename.replace(".mp4", ".png")}'
+            thumbnail_path = youtube_uploader.save_thumbnail_from_base64(
+                thumbnail_base64, thumb_filename
+            )
+        except Exception as e:
+            print(f'Thumbnail save failed: {e}')
+    
+    task_id = str(uuid.uuid4())
+    
+    def run_upload():
+        youtube_uploader.upload_video(
+            video_path=video_path,
+            title=title,
+            description=description,
+            tags=tags,
+            privacy=privacy,
+            publish_at=publish_at,
+            thumbnail_path=thumbnail_path,
+            task_id=task_id
+        )
+    
+    thread = threading.Thread(target=run_upload, daemon=True)
+    thread.start()
+    
+    return jsonify({
+        'success': True,
+        'task_id': task_id,
+        'message': 'Upload started'
+    })
+
+
+# ===== PHASE 7: SOCIAL MEDIA UPLOAD =====
+
+@app.route('/social')
+def social_page():
+    return render_template('social_upload.html')
+
+
+@app.route('/api/social/convert', methods=['POST'])
+def social_convert():
+    """Start 16:9 → 9:16 center-crop conversion."""
+    data = request.json
+    filename = data.get('filename', '')
+    
+    if not filename:
+        return jsonify({'success': False, 'error': 'No filename specified'}), 400
+    
+    input_path = os.path.join(video_converter.HEYGEN_DIR, filename)
+    if not os.path.exists(input_path):
+        return jsonify({'success': False, 'error': 'Video file not found'}), 404
+    
+    task_id = str(uuid.uuid4())
+    
+    def run_conversion():
+        video_converter.convert_to_portrait(input_path, task_id=task_id)
+    
+    thread = threading.Thread(target=run_conversion, daemon=True)
+    thread.start()
+    
+    return jsonify({
+        'success': True,
+        'task_id': task_id,
+        'message': 'Conversion started'
+    })
+
+
+@app.route('/api/social/convert/status/<task_id>', methods=['GET'])
+def social_convert_status(task_id):
+    """Get conversion progress."""
+    progress = video_converter.get_progress(task_id)
+    return jsonify(progress)
+
+
+@app.route('/api/social/converted', methods=['GET'])
+def social_converted_list():
+    """List all converted 9:16 videos."""
+    videos = video_converter.list_social_videos()
+    return jsonify({'success': True, 'videos': videos})
+
+
+@app.route('/api/social/stream/<filename>', methods=['GET'])
+def social_stream(filename):
+    """Stream a converted social video for preview."""
+    filepath = os.path.join(video_converter.SOCIAL_DIR, filename)
+    if os.path.exists(filepath):
+        return send_file(filepath, mimetype='video/mp4')
+    return jsonify({'error': 'File not found'}), 404
 
 
 if __name__ == '__main__':
