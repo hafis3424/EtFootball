@@ -145,8 +145,8 @@
     let isBatchUploading = false;
 
     async function init() {
-        try { studioData = await loadIDB('studioData') || []; } catch(e) {
-            const s = sessionStorage.getItem('studioData');
+        try { studioData = await loadIDB('heygenStudioData') || []; } catch(e) {
+            const s = sessionStorage.getItem('heygenStudioData');
             if (s) studioData = JSON.parse(s);
         }
         if (!studioData.length) { showEmpty(); return; }
@@ -237,7 +237,7 @@
             const data = await res.json();
             if (!data.success) throw new Error(data.error);
             studioData[i]._heygenFile = data.filename;
-            await saveIDB('studioData', studioData);
+            await saveIDB('heygenStudioData', studioData);
             // Re-render this card's media section
             const media = card.querySelector('.card-media');
             media.innerHTML = `<img class="media-thumb" src="${studioData[i].edited_thumbnail_base64||studioData[i].thumbnail_url||''}" alt="Thumbnail" onerror="this.style.opacity='0.2'">
@@ -293,7 +293,7 @@
 
     async function pollProgress(tid,i){const pfill=document.getElementById(`pfill-${i}`),ptext=document.getElementById(`ptext-${i}`),prog=document.getElementById(`prog-${i}`);
         while(true){await new Promise(r=>setTimeout(r,1000));const r=await fetch('/api/upload/status/'+tid),p=await r.json();pfill.style.width=p.progress+'%';ptext.textContent=p.message||`${p.progress}%`;
-            if(p.status==='done'){const res=p.result;if(res){studioData[i]._heygenUploadedUrl=res.video_url;studioData[i]._heygenVideoId=res.video_id;saveIDB('studioData',studioData);
+            if(p.status==='done'){const res=p.result;if(res){studioData[i]._heygenUploadedUrl=res.video_url;studioData[i]._heygenVideoId=res.video_id;saveIDB('heygenStudioData',studioData);
                 const card=document.getElementById(`card-${i}`);card.classList.add('uploaded');const badge=card.querySelector('.card-status-badge');badge.className='card-status-badge badge-uploaded';badge.innerHTML='<i class="fas fa-check-circle"></i> Uploaded';showResult(i,res);}
                 updateStats();setTimeout(()=>prog.classList.remove('visible'),2000);return;}
             if(p.status==='error')throw new Error(p.message);}}
