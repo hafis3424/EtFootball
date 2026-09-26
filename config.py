@@ -22,6 +22,18 @@ AVAILABLE_MODELS = {
     "category": "gemini",
     "provider": "google"
     },
+    "gemini-3.7-flash": {
+    "name": "Gemini 3.7 Flash",
+    "description": "Latest Google Flash model",
+    "category": "gemini",
+    "provider": "google"
+    },
+    "gemini-3.8-flash": {
+        "name": "Gemini 3.8 Flash",
+        "description": "Newest Google Flash model",
+        "category": "gemini",
+        "provider": "google"
+    },
     "gemini-2.5-flash-lite": {
         "name": "Gemini 2.5 Flash Lite",
         "description": "Fast, best quality (default)",
@@ -47,11 +59,17 @@ AVAILABLE_MODELS = {
         "description": "ChatGPT-style via Groq",
         "category": "groq",
         "provider": "groq"
+    },
+    "qwen/qwen3.8-27b": {
+        "name": "Qwen 3.8 27B (Groq)",
+        "description": "Qwen 3.8 27B via Groq",
+        "category": "groq",
+        "provider": "groq"
     }
 }
 
 # Default model
-DEFAULT_MODEL = "gemini-3.5-flash"
+DEFAULT_MODEL = "gemini-3.8-flash"
 
 # ===== PHASE 6 & 7: HeyGen + Social Media =====
 
