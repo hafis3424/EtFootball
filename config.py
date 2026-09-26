@@ -16,11 +16,11 @@ DEV_VIDEO_LIMIT = 100
 # Available AI models - organized by provider
 AVAILABLE_MODELS = {
     # Gemini - primary models (Google)
-    "gemini-3-flash": {
-        "name": "Gemini 3 Flash",
-        "description": "Latest Gemini 3, most powerful",
-        "category": "gemini",
-        "provider": "google"
+    "gemini-3.5-flash": {
+    "name": "Gemini 3.5 Flash",
+    "description": "Latest Google Flash model",
+    "category": "gemini",
+    "provider": "google"
     },
     "gemini-2.5-flash-lite": {
         "name": "Gemini 2.5 Flash Lite",
@@ -29,17 +29,17 @@ AVAILABLE_MODELS = {
         "provider": "google"
     },
     # Gemma - backup options (Google, instruction-tuned)
-    "gemma-3-27b-it": {
-        "name": "Gemma 3 27B",
-        "description": "Powerful open-source backup",
-        "category": "gemma",
-        "provider": "google"
+    "gemma-4-31b-it": {
+    "name": "Gemma 4 31B",
+    "description": "Latest Gemma model",
+    "category": "gemma",
+    "provider": "google"
     },
-    "gemma-3-4b-it": {
-        "name": "Gemma 3 4B",
-        "description": "Fast open-source backup",
-        "category": "gemma",
-        "provider": "google"
+    "gemma-4-26b-a4b-it": {
+    "name": "Gemma 4 26B",
+    "description": "Fast Gemma model",
+    "category": "gemma",
+    "provider": "google"
     },
     # Groq - GPT model (via Groq API)
     "openai/gpt-oss-120b": {
@@ -51,7 +51,7 @@ AVAILABLE_MODELS = {
 }
 
 # Default model
-DEFAULT_MODEL = "gemini-2.5-flash-lite"
+DEFAULT_MODEL = "gemini-3.5-flash"
 
 # ===== PHASE 6 & 7: HeyGen + Social Media =====
 
